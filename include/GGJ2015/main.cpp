@@ -15,12 +15,14 @@ namespace ggj
 
 			// BitmapFonts
 			ssvs::BitmapFont* obStroked{nullptr};
+			ssvs::BitmapFont* obBig{nullptr};
 
 			inline Assets()
 			{
 				ssvs::loadAssetsFromJson(assetManager, "Data/", ssvj::Val::fromFile("Data/assets.json"));
 
 				obStroked = &assetManager.get<ssvs::BitmapFont>("fontObStroked");
+				obBig = &assetManager.get<ssvs::BitmapFont>("fontObBig");
 			}
 		};
 	}
@@ -90,7 +92,7 @@ namespace ggj
 					elementTypes.emplace_back("Earth");
 					elementTypes.emplace_back("Lightning");
 
-					SSVU_ASSERT(elementTypes.size() == Constants::elementsCount);
+					SSVU_ASSERT(elementTypes.size() == Constants::elementCount);
 				}
 
 				inline const auto& getElementTypes()
@@ -146,6 +148,11 @@ namespace ggj
 			if(isWeaponWeakAgainst(mW, mA)) result *= Constants::malusMultiplier;
 			return ssvu::getClampedMin(result, 0);
 		}
+
+		inline static bool canWeaponDamage(const Weapon& mW, const Armor& mA)
+		{
+			return getWeaponDamageAgainst(mW, mA) > 0;
+		}
 	};
 
 	struct Creature
@@ -188,35 +195,83 @@ namespace ggj
 			}
 		}
 
+		inline bool canDamage(Creature& mX) const noexcept
+		{
+			return Calculations::canWeaponDamage(weapon, mX.armor);
+		}
+
 		inline bool isDead() const noexcept { return hps <= 0; }
+
+		inline std::string getLogStr() const
+		{
+			std::string result;
+
+			result += "HPS: " + ssvu::toStr(hps) + ", ";
+			result += "ATK: " + ssvu::toStr(weapon.atk) + ", ";
+			result += "DEF: " + ssvu::toStr(armor.def) + ", ";
+			result += "Str: " + ssvu::toStr(weapon.strongAgainst) + ", ";
+			result += "Wkk: " + ssvu::toStr(weapon.weakAgainst);
+
+			return result;
+		}
 	};
 
 	class GameSession;
 
 	struct Choice
 	{
-		GameSession& gameState;
+		GameSession& gameSession;
+		SizeT idx;
 
-		inline Choice(GameSession& mGameState) : gameState{mGameState}
+		inline Choice(GameSession& mGameState, SizeT mIdx) : gameSession{mGameState}, idx{mIdx} { }
+
+		inline virtual void execute() { }
+
+		inline virtual std::string getChoiceStr() { return ""; }
+	};
+
+	struct ChoiceAdvance : public Choice
+	{
+		inline ChoiceAdvance(GameSession& mGameState, SizeT mIdx) : Choice{mGameState, mIdx} { }
+
+		inline void execute() override;
+		inline std::string getChoiceStr() override
 		{
-
-		}
-
-		inline virtual void execute()
-		{
-
+			return "Advance to next room";
 		}
 	};
 
 	struct ChoiceCreature : public Choice
 	{
 		Creature creature;
+
+		inline ChoiceCreature(GameSession& mGameState, SizeT mIdx) : Choice{mGameState, mIdx} { }
+
 		inline void execute() override;
+		inline std::string getChoiceStr() override
+		{
+			return "Fight " + creature.name + "\n(" + creature.getLogStr() + ")";
+		}
+	};
+
+	struct ChoiceItemDrop : public Choice
+	{
+		inline ChoiceItemDrop(GameSession& mGameState, SizeT mIdx) : Choice{mGameState, mIdx} { }
+
+		inline void execute() override;
+		inline std::string getChoiceStr() override
+		{
+			return "Collect dropped items";
+		}
 	};
 
 	struct GameSession
 	{
+		int roomNumber{0};
 		Creature player;
+		std::vector<ssvu::UPtr<Choice>> choices;
+		float timer;
+		ssvu::Delegate<void()> onRefreshChoices;
 
 		inline GameSession()
 		{
@@ -232,12 +287,105 @@ namespace ggj
 			player.hps = 100;
 			player.weapon = startingWeapon;
 			player.armor = startingArmor;
+
+			advance();
+		}
+
+		inline void refreshChoices()
+		{
+			onRefreshChoices();
+			onRefreshChoices = ssvu::Delegate<void()>{};
+		}
+
+		inline void resetTimer()
+		{
+			timer = ssvu::getSecondsToFT(10);
+		}
+
+		inline Weapon generateWeapon(int mL)
+		{
+			Weapon result;
+
+			result.name = "Generated name TODO (lvl: " + ssvu::toStr(mL) + ")";
+			result.atk = ssvu::getClampedMin(5, mL + ssvu::getRnd(static_cast<int>(-1.5f * mL), static_cast<int>(1.8f * mL)));
+			for(int i{1}; i < mL / 3; ++i) if(ssvu::getRnd(0, 100) < 25) result.strongAgainst[ssvu::getRnd(0ul, Constants::elementCount)] = true;
+			for(int i{1}; i < mL / 3; ++i) if(ssvu::getRnd(0, 100) < 25) result.weakAgainst[ssvu::getRnd(0ul, Constants::elementCount)] = true;
+
+			return result;
+		}
+
+		inline Armor generateArmor(int mL)
+		{
+			Armor result;
+
+			result.name = "Generated name TODO (lvl: " + ssvu::toStr(mL) + ")";
+			result.def = ssvu::getClampedMin(5, mL + ssvu::getRnd(static_cast<int>(-1.5f * mL), static_cast<int>(1.8f * mL))) * 0.7f;
+			for(int i{1}; i < mL / 3; ++i) if(ssvu::getRnd(0, 100) < 25) result.elementTypes[ssvu::getRnd(0ul, Constants::elementCount)] = true;
+
+			return result;
+		}
+
+		inline Creature generateCreature(int mL)
+		{
+			Creature result;
+
+			result.name = "Generated name TODO (lvl: " + ssvu::toStr(mL) + ")";
+			result.armor = generateArmor(mL);
+			result.weapon = generateWeapon(mL);
+			result.hps = mL * 5 + ssvu::getRnd(0, mL * 3);
+
+			return result;
+		}
+
+		inline void generateChoices()
+		{
+			choices.clear();
+
+			for(int i{0}; i < 5; ++i)
+			{
+				auto choice(ssvu::makeUPtr<ChoiceCreature>(*this, i));
+				choice->creature = generateCreature(roomNumber);
+
+				choices.emplace_back(std::move(choice));
+			}
+		}
+
+
+		template<typename T> inline void resetChoiceAt(SizeT mIdx, T&& mX)
+		{
+			//onRefreshChoices += [this, mIdx, &mX]{
+				choices[mIdx] = ssvu::fwd<T>(mX);// };
+		}
+
+		inline void advance()
+		{
+			++roomNumber;
+			generateChoices();
+			resetTimer();
 		}
 	};
 
+	inline void ChoiceAdvance::execute()
+	{
+		gameSession.advance();
+	}
+
+	inline void ChoiceItemDrop::execute()
+	{
+		gameSession.resetChoiceAt(idx, ssvu::makeUPtr<ChoiceAdvance>(gameSession, idx));
+	}
+
 	inline void ChoiceCreature::execute()
 	{
-		gameState.player.fight(creature);
+		if(gameSession.player.canDamage(creature))
+		{
+			gameSession.player.fight(creature);
+			gameSession.resetChoiceAt(idx, ssvu::makeUPtr<ChoiceItemDrop>(gameSession, idx));
+		}
+		else
+		{
+			eventLog() << gameSession.player.name << " cannot fight " << creature.name << "!\n";
+		}
 	}
 
 	class GameApp : public Boilerplate::App
@@ -245,6 +393,7 @@ namespace ggj
 		private:
 			GameSession gameSession;
 			ssvs::BitmapText tempLog;
+			ssvs::BitmapText txtTimer;
 
 			inline void initInput()
 			{
@@ -258,13 +407,65 @@ namespace ggj
 				gs.addInput({{IK::S}}, [this](FT){ gameCamera.pan(0, 4); });
 				gs.addInput({{IK::Q}}, [this](FT){ gameCamera.zoomOut(1.1f); });
 				gs.addInput({{IK::E}}, [this](FT){ gameCamera.zoomIn(1.1f); });
+
+				gs.addInput({{IK::Num0}}, [this](FT){ executeChoice(0); }, IT::Once);
+				gs.addInput({{IK::Num1}}, [this](FT){ executeChoice(1); }, IT::Once);
+				gs.addInput({{IK::Num2}}, [this](FT){ executeChoice(2); }, IT::Once);
+				gs.addInput({{IK::Num3}}, [this](FT){ executeChoice(3); }, IT::Once);
+				gs.addInput({{IK::Num4}}, [this](FT){ executeChoice(4); }, IT::Once);
+				gs.addInput({{IK::Num5}}, [this](FT){ executeChoice(5); }, IT::Once);
+				gs.addInput({{IK::Num6}}, [this](FT){ executeChoice(6); }, IT::Once);
+				gs.addInput({{IK::Num7}}, [this](FT){ executeChoice(7); }, IT::Once);
+				gs.addInput({{IK::Num8}}, [this](FT){ executeChoice(8); }, IT::Once);
+				gs.addInput({{IK::Num9}}, [this](FT){ executeChoice(9); }, IT::Once);
+			}
+
+			inline void executeChoice(int mI)
+			{
+				if(gameSession.choices.size() >= mI) return;
+
+				gameSession.refreshChoices();
+				gameSession.choices[mI]->execute();
 			}
 
 			inline void update(FT mFT)
 			{
 				gameCamera.update<float>(mFT);
 
-				tempLog.setString(getEventLogStream().str());
+
+
+				gameSession.timer -= mFT;
+
+				if(gameSession.timer <= 0)
+				{
+					txtTimer.setString("RIP LOL XDddddddddddddddddddddD");
+				}
+				else
+				{
+					auto intt(ssvu::getFTToSeconds(static_cast<int>(gameSession.timer)));
+					auto gts(intt >= 10 ? ssvu::toStr(intt) : "0" + ssvu::toStr(intt));
+
+					txtTimer.setString("00:" + gts);
+					txtTimer.setOrigin(ssvs::getGlobalHalfSize(txtTimer));
+					txtTimer.setPosition(gameWindow->getWidth() / 2.f, 25);
+
+					std::string choiceStr;
+
+					int i{0};
+					for(auto& c : gameSession.choices)
+					{
+						choiceStr += ssvu::toStr(i) + ". " + c->getChoiceStr() + "\n\n";
+						++i;
+					}
+
+					auto els(getEventLogStream().str());
+					els = els.substr(els.size() > 250 ? els.size() - 250 : 0, 250);
+					//getEventLogStream().str("");
+
+					tempLog.setString("\n\n" + choiceStr + "\n\n" + els);
+				}
+
+
 			}
 
 			inline void draw()
@@ -274,13 +475,18 @@ namespace ggj
 					gameWindow->draw(tempLog);
 				}
 				gameCamera.unapply();
+
+				gameWindow->draw(txtTimer);
 			}
 
 		public:
 			inline GameApp(ssvs::GameWindow& mGameWindow)
-				: Boilerplate::App{mGameWindow}, tempLog{*getAssets().obStroked, ""}
+				: Boilerplate::App{mGameWindow}, tempLog{*getAssets().obStroked, ""}, txtTimer{*getAssets().obBig, ""}
 			{
 				tempLog.setTracking(-3);
+				txtTimer.setTracking(-1);
+
+
 
 				gameState.onUpdate += [this](FT mFT){ update(mFT); };
 				gameState.onDraw += [this]{ draw(); };
@@ -293,41 +499,6 @@ namespace ggj
 
 int main()
 {
-	using namespace ggj;
-
-	Weapon w1;
-	w1.name = "Test W1";
-	w1.atk = 15;
-	w1.strongAgainst = ElementBitset{"1000"};
-
-	Weapon w2;
-	w2.name = "Test W2";
-	w2.atk = 12;
-
-	Armor a1;
-	a1.name = "Test A1";
-	a1.def = 2;
-	a1.elementTypes = ElementBitset{"0101"};
-
-	Armor a2;
-	a2.name = "Test A2";
-	a2.def = 4;
-	a2.elementTypes = ElementBitset{"1101"};
-
-	Creature c1;
-	c1.name = "Test C1";
-	c1.hps = 100;
-	c1.weapon = w1;
-	c1.armor = a1;
-
-	Creature c2;
-	c2.name = "Test C2";
-	c2.hps = 90;
-	c2.weapon = w2;
-	c2.armor = a2;
-
-	c1.fight(c2);
-
 	Boilerplate::AppRunner<ggj::GameApp>{"GGJ2015", 800, 600};
 	return 0;
 }
