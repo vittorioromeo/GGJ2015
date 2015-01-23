@@ -1,0 +1,22 @@
+{
+	"textures":
+	[
+		"fontObStroked.png"
+	],
+	"soundBuffers":
+	[	
+	
+	],
+	"musics":
+	[
+		
+	],
+	"bitmapFonts":
+	{
+		"fontObStroked": ["fontObStroked.png", "fontObStroked.json"]
+	},
+	"tilesets":
+	{
+
+	}
+}
