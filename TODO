@@ -1,0 +1,37 @@
+TODO
+
+* Menu 
+	* Selectable difficulty multiplier
+
+* Random name generators from wordlists
+
+* Calculations
+	* Create functions to calculate everything through the multipliers
+	* Use global difficulty multiplier in calculations
+	* Use non-global scaling (?) multiplier as well
+
+* Fonts (?)
+
+* Decide on permanent atk/def boost
+
+* Implement item drops
+	* Weapon/armor/HPS/ATK/DEF
+
+* Implement additional choices
+	* HPS/ATK/DEF tradeoffs 
+	* 
+
+* Graphical work 
+	* Creature "cards"
+	* Choice screen
+	* Player stat and equip
+	* Elemental types
+
+* Drawing architecture
+	* Choice "visitor"
+	* Or simply... a virtual Draw() that  takes a target ref
+
+struct ChoiceBase
+{
+
+}
