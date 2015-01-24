@@ -34,6 +34,15 @@ namespace ggj
 
 			sf::Texture* itemCard{nullptr};
 
+			sf::Texture* eFire{nullptr};
+			sf::Texture* eWater{nullptr};
+			sf::Texture* eEarth{nullptr};
+			sf::Texture* eLightning{nullptr};
+
+			sf::Texture* eST{nullptr};
+			sf::Texture* eWK{nullptr};
+			sf::Texture* eTY{nullptr};
+
 			inline Assets()
 			{
 				ssvs::loadAssetsFromJson(assetManager, "Data/", ssvj::Val::fromFile("Data/assets.json"));
@@ -56,6 +65,15 @@ namespace ggj
 				advance = &assetManager.get<sf::Texture>("advance.png");
 
 				itemCard = &assetManager.get<sf::Texture>("itemCard.png");
+
+				eFire = &assetManager.get<sf::Texture>("eFire.png");
+				eWater = &assetManager.get<sf::Texture>("eWater.png");
+				eEarth = &assetManager.get<sf::Texture>("eEarth.png");
+				eLightning = &assetManager.get<sf::Texture>("eLightning.png");
+
+				eST = &assetManager.get<sf::Texture>("eST.png");
+				eWK = &assetManager.get<sf::Texture>("eWK.png");
+				eTY = &assetManager.get<sf::Texture>("eTY.png");
 			}
 		};
 	}
@@ -593,6 +611,8 @@ namespace ggj
 		ssvs::BitmapText txtATK;
 		ssvs::BitmapText txtDEF;
 
+		sf::Sprite eST, eWK, eTY;
+
 		inline CreatureStatsDraw()
 			: txtHPS{*getAssets().obStroked, ""}, txtATK{*getAssets().obStroked, ""}, txtDEF{*getAssets().obStroked, ""}
 		{
@@ -603,17 +623,53 @@ namespace ggj
 			txtHPS.setTracking(-3);
 			txtATK.setTracking(-3);
 			txtDEF.setTracking(-3);
+
+			eST.setTexture(*getAssets().eST);
+			eWK.setTexture(*getAssets().eWK);
+			eTY.setTexture(*getAssets().eTY);
+		}
+
+		inline auto createSprite(int mEI)
+		{
+			sf::Sprite result;
+
+			if(mEI == 0) result.setTexture(*getAssets().eFire);
+			if(mEI == 1) result.setTexture(*getAssets().eWater);
+			if(mEI == 2) result.setTexture(*getAssets().eEarth);
+			if(mEI == 3) result.setTexture(*getAssets().eLightning);
+
+			return result;
+		}
+
+		template<typename T> inline void appendElems(ssvs::GameWindow& mGW, const T& mX, ElementBitset mEB)
+		{
+			for(auto i(0u); i < Constants::elementCount; ++i)
+			{
+				if(!mEB[i]) continue;
+
+				auto offset(7 * i);
+				auto s(createSprite(i));
+
+				s.setPosition(mX.getPosition() + Vec2f{12 + offset, 0});
+
+				mGW.draw(s);
+			}
 		}
 
 		inline void draw(Creature& mC, ssvs::GameWindow& mGW, const Vec2f& mPos, const Vec2f&)
 		{
 			iconHPS.setPosition(mPos + Vec2f{0.f, 12.f * 0.f});
-			iconATK.setPosition(mPos + Vec2f{0.f, 12.f * 1.f});
-			iconDEF.setPosition(mPos + Vec2f{0.f, 12.f * 2.f});
 
-			txtHPS.setPosition(mPos + Vec2f{12.f, 12.f * 0.f});
-			txtATK.setPosition(mPos + Vec2f{12.f, 12.f * 1.f});
-			txtDEF.setPosition(mPos + Vec2f{12.f, 12.f * 2.f});
+			iconATK.setPosition(mPos + Vec2f{0.f, 12.f * 1.f});
+			eST.setPosition(iconATK.getPosition() + Vec2f{0, 10 + 1});
+			eWK.setPosition(eST.getPosition() + Vec2f{0, 6 + 1});
+
+			iconDEF.setPosition(eWK.getPosition() + Vec2f{0.f, 10.f});
+			eTY.setPosition(iconDEF.getPosition() + Vec2f{0, 10 + 1});
+
+			txtHPS.setPosition(iconHPS.getPosition() + Vec2f{12.f, 0});
+			txtATK.setPosition(iconATK.getPosition() + Vec2f{12.f, 0});
+			txtDEF.setPosition(iconDEF.getPosition() + Vec2f{12.f, 0});
 
 			txtHPS.setString(ssvu::toStr(mC.hps));
 			txtATK.setString(ssvu::toStr(mC.weapon.atk) + " (+"+ ssvu::toStr(mC.bonusATK) + ")");
@@ -626,6 +682,16 @@ namespace ggj
 			mGW.draw(txtHPS);
 			mGW.draw(txtATK);
 			mGW.draw(txtDEF);
+
+			mGW.draw(eST);
+			mGW.draw(eWK);
+			mGW.draw(eTY);
+
+			appendElems(mGW, eST, mC.weapon.strongAgainst);
+			appendElems(mGW, eWK, mC.weapon.weakAgainst);
+			appendElems(mGW, eTY, mC.armor.elementTypes);
+
+
 		}
 	};
 
@@ -1184,4 +1250,5 @@ int main()
 	Boilerplate::AppRunner<ggj::GameApp>{"GGJ2015", 320, 240};
 	return 0;
 }
+
 
