@@ -11,6 +11,7 @@ namespace ggj
 
 			// Audio players
 			ssvs::SoundPlayer soundPlayer;
+			ssvs::SoundPlayer nilsPlayer;
 			ssvs::MusicPlayer musicPlayer;
 
 			// BitmapFonts
@@ -43,6 +44,13 @@ namespace ggj
 			sf::Texture* eWK{nullptr};
 			sf::Texture* eTY{nullptr};
 
+			sf::SoundBuffer* lvl1{nullptr};
+			sf::SoundBuffer* lvl2{nullptr};
+			sf::SoundBuffer* lvl3{nullptr};
+			sf::SoundBuffer* lvl4{nullptr};
+
+			sf::SoundBuffer* lose{nullptr};
+
 			inline Assets()
 			{
 				ssvs::loadAssetsFromJson(assetManager, "Data/", ssvj::Val::fromFile("Data/assets.json"));
@@ -74,6 +82,13 @@ namespace ggj
 				eST = &assetManager.get<sf::Texture>("eST.png");
 				eWK = &assetManager.get<sf::Texture>("eWK.png");
 				eTY = &assetManager.get<sf::Texture>("eTY.png");
+
+				lvl1 = &assetManager.get<sf::SoundBuffer>("lvl1.wav");
+				lvl2 = &assetManager.get<sf::SoundBuffer>("lvl2.wav");
+				lvl3 = &assetManager.get<sf::SoundBuffer>("lvl3.wav");
+				lvl4 = &assetManager.get<sf::SoundBuffer>("lvl4.wav");
+
+				lose = &assetManager.get<sf::SoundBuffer>("lose.wav");
 			}
 		};
 	}
@@ -418,6 +433,16 @@ namespace ggj
 		return result;
 	}
 
+
+	template <typename T>
+	std::string tsWithPrecision(const T a_value, const int n = 6)
+	{
+		std::ostringstream out;
+		out << std::fixed << std::setprecision(n) << a_value;
+		return out.str();
+	}
+
+
 	struct InstantEffect
 	{
 		enum class Type
@@ -437,9 +462,9 @@ namespace ggj
 
 		Type type;
 		Stat stat;
-		StatType value;
+		float value;
 
-		inline InstantEffect(Type mType, Stat mStat, StatType mValue) : type{mType}, stat{mStat}, value{mValue} { }
+		inline InstantEffect(Type mType, Stat mStat, float mValue) : type{mType}, stat{mStat}, value{mValue} { }
 		inline void apply(Creature& mX)
 		{
 			StatType* statPtr{nullptr};
@@ -451,24 +476,30 @@ namespace ggj
 				case Stat::SDEF: statPtr = &mX.bonusDEF; break;
 			}
 
+			float x(static_cast<float>(*statPtr));
+
 			switch(type)
 			{
-				case Type::Add: *statPtr += value; break;
-				case Type::Sub: *statPtr -= value; ssvu::clampMin(*statPtr, 1); break;
-				case Type::Mul: *statPtr *= value; break;
-				case Type::Div: *statPtr /= value; ssvu::clampMin(*statPtr, 1); break;
+				case Type::Add: *statPtr = static_cast<int>(x + value); break;
+				case Type::Sub: *statPtr = static_cast<int>(x - value); ssvu::clampMin(*statPtr, 1); break;
+				case Type::Mul: *statPtr = static_cast<int>(x * value); break;
+				case Type::Div: *statPtr = static_cast<int>(x / value); ssvu::clampMin(*statPtr, 1); break;
 			}
+
+			eventLo() << "Got " << getStrType() << tsWithPrecision(value, 1) << " " << getStrStat() << "\n";
 		}
 
 		inline std::string getStrType()
 		{
 			switch(type)
 			{
-				case Type::Add: return "Add";
-				case Type::Sub: return "Subtract";
-				case Type::Mul: return "Multiply";
-				case Type::Div: return "Divide";
+				case Type::Add: return "+";
+				case Type::Sub: return "-";
+				case Type::Mul: return "*";
+				case Type::Div: return "/";
 			}
+
+			return "";
 		}
 
 		inline std::string getStrStat()
@@ -479,6 +510,8 @@ namespace ggj
 				case Stat::SATK: return "ATK";
 				case Stat::SDEF: return "DEF";
 			}
+
+			return "";
 		}
 	};
 
@@ -504,42 +537,38 @@ namespace ggj
 
 	struct DropIE : public Drop
 	{
-		InstantEffect ie;
-		ssvs::BitmapText txtType{*getAssets().obStroked, ""};
-		ssvs::BitmapText txtValue{*getAssets().obStroked, ""};
-		ssvs::BitmapText txtStat{*getAssets().obStroked, ""};
+		std::vector<InstantEffect> ies;
+		std::vector<ssvs::BitmapText> bts;
 
-		inline DropIE(const InstantEffect& mIE) : ie{mIE}
+		inline void addIE(InstantEffect mIE)
 		{
-			txtType.setString(ie.getStrType());
-			txtValue.setString(ssvu::toStr(ie.value));
-			txtStat.setString(ie.getStrStat());
+			ies.emplace_back(mIE);
 
-			txtType.setTracking(-3);
-			txtValue.setTracking(-3);
-			txtStat.setTracking(-3);
+			ssvs::BitmapText txt{*getAssets().obStroked, ""};
+			txt.setString(mIE.getStrType() + tsWithPrecision(mIE.value, 1) + " " + mIE.getStrStat());
+			txt.setTracking(-3);
+			txt.setOrigin(ssvs::getGlobalHalfSize(txt));
 
-			txtType.setOrigin(ssvs::getGlobalHalfSize(txtType));
-			txtValue.setOrigin(ssvs::getGlobalHalfSize(txtValue));
-			txtStat.setOrigin(ssvs::getGlobalHalfSize(txtStat));
+			bts.emplace_back(txt);
 		}
 
 		inline void apply(Creature& mX) override
 		{
-			ie.apply(mX);
+			for(auto& x : ies) x.apply(mX);
 		}
 
 		inline void draw(ssvs::GameWindow& mGW, const Vec2f& mPos, const Vec2f& mCenter) override
 		{
 			Drop::draw(mGW, mPos, mCenter);
 
-			txtType.setPosition(card.getPosition() + Vec2f{0, -10.f});
-			txtValue.setPosition(card.getPosition() + Vec2f{0, 0.f});
-			txtStat.setPosition(card.getPosition() + Vec2f{0, 10.f});
+			int i{0};
+			for(auto& t : bts)
+			{
+				t.setPosition(card.getPosition() + Vec2f{0, -10.f + (10 * i)});
+				mGW.draw(t);
 
-			mGW.draw(txtType);
-			mGW.draw(txtValue);
-			mGW.draw(txtStat);
+				++i;
+			}
 		}
 	};
 
@@ -650,7 +679,7 @@ namespace ggj
 				auto offset(7 * i);
 				auto s(createSprite(i));
 
-				s.setPosition(mX.getPosition() + Vec2f{12 + offset, 0});
+				s.setPosition(mX.getPosition() + Vec2f{12.f + offset, 0.f});
 
 				mGW.draw(s);
 			}
@@ -739,6 +768,9 @@ namespace ggj
 
 	struct GameSession
 	{
+		enum class State{Playing, Dead};
+
+		State state{State::Playing};
 		int roomNumber{0};
 		Creature player;
 		ssvu::UPtr<Choice> choices[Constants::maxChoices];
@@ -747,10 +779,22 @@ namespace ggj
 		float difficultyMultiplier{1.f};
 		float rndMultiplier{1.5f};
 
+		sf::SoundBuffer* currentMusic{nullptr};
+		sf::Sound music;
+
 		ItemDrops* currentDrops{nullptr};
 
-		inline GameSession()
+		float shake{0}, deathTextTime{0};
+
+		inline void restart()
 		{
+			getAssets().soundPlayer.stop();
+
+			state = State::Playing;
+			roomNumber = 0;
+			for(auto& c : choices) c.release();
+			for(auto& c : nextChoices) c.release();
+
 			Weapon startingWeapon;
 			startingWeapon.atk = 10;
 			startingWeapon.name = "Starting weapon";
@@ -765,6 +809,11 @@ namespace ggj
 			player.armor = startingArmor;
 
 			advance();
+		}
+
+		inline GameSession()
+		{
+			restart();
 		}
 
 		inline void tryPickupDrop(int mIdx)
@@ -817,7 +866,7 @@ namespace ggj
 
 		inline InstantEffect generateInstantEffect(int mL)
 		{
-			auto d(static_cast<int>(mL * difficultyMultiplier));
+			//auto d(static_cast<int>(mL * difficultyMultiplier));
 
 			InstantEffect::Stat stat;
 			InstantEffect::Type type;
@@ -833,8 +882,9 @@ namespace ggj
 			if(typeN == 2) type = InstantEffect::Type::Mul;
 			if(typeN == 3) type = InstantEffect::Type::Div;
 
-			auto val(getRndStat(mL, -1.5f, 1.5f));
+			float val(getRndStat(mL, -1.5f, 1.5f));
 			if(statN == 0) val *= 3;
+			if(typeN == 2 || typeN == 3) val = ssvu::getRndR(0.75f, 1.25f);
 
 			InstantEffect result
 			{
@@ -846,7 +896,7 @@ namespace ggj
 
 		inline ItemDrops generateDrops(int mL)
 		{
-			auto d(static_cast<int>(mL * difficultyMultiplier));
+//			auto d(static_cast<int>(mL * difficultyMultiplier));
 
 			ItemDrops result;
 
@@ -854,9 +904,14 @@ namespace ggj
 			{
 				if(ssvu::getRnd(0, 50) > 25) continue;
 
-				auto ie(generateInstantEffect(mL));
+				auto dIE(ssvu::makeUPtr<DropIE>());
 
-				result.drops[i] = ssvu::makeUPtr<DropIE>(ie);
+				dIE->addIE(generateInstantEffect(mL));
+
+				if(ssvu::getRnd(0, 100) < 25) dIE->addIE(generateInstantEffect(mL));
+				if(ssvu::getRnd(0, 100) < 25) dIE->addIE(generateInstantEffect(mL));
+
+				result.drops[i] = std::move(dIE);
 			}
 
 			return result;
@@ -905,19 +960,33 @@ namespace ggj
 
 		inline void generateChoices()
 		{
-			for(auto i(0u); i < Constants::maxChoices; ++i)
+			auto choiceNumber(2);
+
+			if(roomNumber > 10) choiceNumber = 3;
+			else if(roomNumber > 20) choiceNumber = 4;
+
+			std::vector<int> indices{0, 1, 2, 3};
+			std::shuffle(indices.begin(), indices.end(), ssvu::getRndEngine());
+
+			for(auto& c : choices) c.release();
+
+			for(int i{0}; i < choiceNumber; ++i)
 			{
-				choices[i].release();
+				auto idx(indices[i]);
 
-				if(ssvu::getRnd(0, 50) > 25) continue;
-
-				auto choice(ssvu::makeUPtr<ChoiceCreature>(*this, i));
+				auto choice(ssvu::makeUPtr<ChoiceCreature>(*this, idx));
 				choice->creature = generateCreature(roomNumber);
 
-				choices[i] = std::move(choice);
+				choices[idx] = std::move(choice);
 			}
 		}
 
+		inline void refreshMusic()
+		{
+			if(music.getBuffer() != currentMusic) music.setBuffer(*currentMusic);
+			music.setLoop(true);
+			if(music.getStatus() != sf::Sound::Status::Playing) music.play();
+		}
 
 		template<typename T> inline void resetChoiceAt(SizeT mIdx, T&& mX)
 		{
@@ -927,9 +996,40 @@ namespace ggj
 		inline void advance()
 		{
 			++roomNumber;
+
+			if(roomNumber < 10)
+			{
+				currentMusic = getAssets().lvl1;
+				refreshMusic();
+			}
+			else if(roomNumber < 20)
+			{
+				currentMusic = getAssets().lvl2;
+				refreshMusic();
+			}
+			else if(roomNumber < 30)
+			{
+				currentMusic = getAssets().lvl3;
+				refreshMusic();
+			}
+			else if(roomNumber < 40)
+			{
+				currentMusic = getAssets().lvl4;
+				refreshMusic();
+			}
+
 			generateChoices();
 			resetTimer();
 			endDrops();
+		}
+
+		inline void die()
+		{
+			music.stop();
+			getAssets().soundPlayer.play(*getAssets().lose);
+			shake = 250;
+			deathTextTime = 255;
+			state = GameSession::State::Dead;
 		}
 	};
 
@@ -965,6 +1065,8 @@ namespace ggj
 		{
 			gameSession.player.fight(creature);
 			gameSession.resetChoiceAt(idx, ssvu::makeUPtr<ChoiceItemDrop>(gameSession, idx));
+
+			gameSession.shake = 10;
 		}
 		else
 		{
@@ -1029,6 +1131,8 @@ namespace ggj
 		}
 	};
 
+
+
 	class GameApp : public Boilerplate::App
 	{
 		private:
@@ -1038,6 +1142,10 @@ namespace ggj
 			std::vector<SlotChoice> slotChoices;
 			sf::Sprite dropsModalSprite;
 			CreatureStatsDraw csdPlayer;
+
+			Vec2f oldPos;
+
+			ssvs::BitmapText txtDeath, txtRestart;
 
 			inline void initInput()
 			{
@@ -1060,6 +1168,12 @@ namespace ggj
 
 			inline void executeChoice(int mI)
 			{
+				if(gameSession.state == GameSession::State::Dead)
+				{
+					gameSession.restart();
+					return;
+				}
+
 				if(gameSession.currentDrops == nullptr)
 				{
 					if(gameSession.choices[mI] == nullptr) return;
@@ -1087,146 +1201,176 @@ namespace ggj
 			{
 				gameCamera.update<float>(mFT);
 
+				if(gameSession.deathTextTime > 0) gameSession.deathTextTime -= mFT;
 
-
-				gameSession.timer -= mFT;
-
-				if(gameSession.timer <= 0)
+				if(gameSession.state == GameSession::State::Playing)
 				{
-					txtTimer.setString("RIP LOL XDddddddddddddddddddddD");
+					gameSession.timer -= mFT;
+
+					if(gameSession.timer <= 0 || gameSession.player.isDead())
+					{
+						gameSession.die();
+					}
+					else
+					{
+						auto intt(ssvu::getFTToSeconds(static_cast<int>(gameSession.timer)));
+						auto gts(intt >= 10 ? ssvu::toStr(intt) : "0" + ssvu::toStr(intt));
+
+						auto third(gameWindow->getWidth() / 5.f);
+
+						txtTimer.setString("00:" + gts);
+						txtTimer.setOrigin(ssvs::getGlobalHalfSize(txtTimer));
+						txtTimer.setPosition(third * 1.f, 20);
+
+						txtRoom.setString("Room:" + ssvu::toStr(gameSession.roomNumber));
+						txtRoom.setOrigin(ssvs::getGlobalHalfSize(txtRoom));
+						txtRoom.setPosition(third * 4.f, 20);
+
+						std::string choiceStr;
+
+						int i{0};
+						for(auto& c : gameSession.choices)
+						{
+							if(c == nullptr) continue;
+
+							choiceStr += ssvu::toStr(i) + ". " + c->getChoiceStr() + "\n\n";
+							++i;
+						}
+
+						auto els(getEventLogStream().str());
+
+						std::string elsLog;
+
+						int foundNewLines{0};
+
+						for(auto itr(els.rbegin()); itr < els.rend(); ++itr)
+						{
+							elsLog += *itr;
+							if(*itr == '\n') ++foundNewLines;
+							if(foundNewLines == 5) break;
+						}
+
+						tempLog.setString(std::string{elsLog.rbegin(), elsLog.rend()});
+					}
+				}
+
+
+
+				if(gameSession.shake > 0)
+				{
+					gameSession.shake -= mFT;
+					auto shake(gameSession.shake);
+					gameCamera.setCenter(oldPos + Vec2f{ssvu::getRndR(-shake, shake), ssvu::getRndR(-shake, shake)});
 				}
 				else
 				{
-					auto intt(ssvu::getFTToSeconds(static_cast<int>(gameSession.timer)));
-					auto gts(intt >= 10 ? ssvu::toStr(intt) : "0" + ssvu::toStr(intt));
-
-					auto third(gameWindow->getWidth() / 5.f);
-
-					txtTimer.setString("00:" + gts);
-					txtTimer.setOrigin(ssvs::getGlobalHalfSize(txtTimer));
-					txtTimer.setPosition(third * 1.f, 20);
-
-					txtRoom.setString("Room:" + ssvu::toStr(gameSession.roomNumber));
-					txtRoom.setOrigin(ssvs::getGlobalHalfSize(txtRoom));
-					txtRoom.setPosition(third * 4.f, 20);
-
-					std::string choiceStr;
-
-					int i{0};
-					for(auto& c : gameSession.choices)
-					{
-						if(c == nullptr) continue;
-
-						choiceStr += ssvu::toStr(i) + ". " + c->getChoiceStr() + "\n\n";
-						++i;
-					}
-
-					auto els(getEventLogStream().str());
-
-					std::string elsLog;
-
-					int foundNewLines{0};
-
-					for(auto itr(els.rbegin()); itr < els.rend(); ++itr)
-					{
-						elsLog += *itr;
-						if(*itr == '\n') ++foundNewLines;
-						if(foundNewLines == 5) break;
-					}
-
-					tempLog.setString(std::string{elsLog.rbegin(), elsLog.rend()});
+					gameCamera.setCenter(oldPos);
 				}
 			}
 
 			inline void draw()
 			{
 				gameCamera.apply();
+
+
+				if(gameSession.state == GameSession::State::Playing || gameSession.deathTextTime > 0)
 				{
+					gameWindow->draw(txtTimer);
+					gameWindow->draw(txtRoom);
 
-				}
-				gameCamera.unapply();
-
-				gameWindow->draw(txtTimer);
-				gameWindow->draw(txtRoom);
-
-				if(gameSession.currentDrops != nullptr)
-				{
-					gameWindow->draw(dropsModalSprite);
-
-					for(auto i(0u); i < slotChoices.size(); ++i)
+					if(gameSession.currentDrops != nullptr)
 					{
-						auto& sc(slotChoices[i]);
+						gameWindow->draw(dropsModalSprite);
 
-						if(i == 0)
+						for(auto i(0u); i < slotChoices.size(); ++i)
 						{
-							sc.drawInCenter(*gameWindow, *getAssets().back);
-							sc.txtStr.setString("Back");
-						}
-						else
-						{
-							if(gameSession.currentDrops->has(i - 1))
+							auto& sc(slotChoices[i]);
+
+							if(i == 0)
 							{
-								gameSession.currentDrops->drops[i -1]->draw(*gameWindow, sc.shape.getPosition(), sc.getCenter());
-								sc.txtStr.setString("Pickup");
+								sc.drawInCenter(*gameWindow, *getAssets().back);
+								sc.txtStr.setString("Back");
+							}
+							else
+							{
+								if(gameSession.currentDrops->has(i - 1))
+								{
+									gameSession.currentDrops->drops[i -1]->draw(*gameWindow, sc.shape.getPosition(), sc.getCenter());
+									sc.txtStr.setString("Pickup");
+								}
+							}
+
+							sc.update();
+
+							if(i == 0 || gameSession.currentDrops->has(i - 1))
+							{
+								gameWindow->draw(sc.txtNum);
+								gameWindow->draw(sc.txtStr);
 							}
 						}
-
-						sc.update();
-
-						if(i == 0 || gameSession.currentDrops->has(i - 1))
+					}
+					else
+					{
+						for(auto i(0u); i < slotChoices.size(); ++i)
 						{
+							auto& sc(slotChoices[i]);
+
+							if(gameSession.choices[i] != nullptr)
+							{
+								sc.txtStr.setString(gameSession.choices[i]->getChoiceStr());
+							}
+							else
+							{
+								sc.txtStr.setString("Blocked");
+							}
+
+							sc.update();
+
+							gameWindow->draw(sc.shape);
+							gameWindow->draw(sc.sprite);
+
+							if(gameSession.choices[i] != nullptr)
+							{
+								gameSession.choices[i]->draw(*gameWindow, sc.shape.getPosition(), sc.getCenter());
+							}
+							else
+							{
+								sc.drawInCenter(*gameWindow, *getAssets().blocked);
+							}
+
 							gameWindow->draw(sc.txtNum);
 							gameWindow->draw(sc.txtStr);
 						}
 					}
+
+					gameWindow->draw(tempLog);
+
+					csdPlayer.draw(gameSession.player, *gameWindow, Vec2f{10, 175}, Vec2f{0.f, 0.f});
 				}
-				else
+
+
+				gameCamera.unapply();
+
+				if(gameSession.state == GameSession::State::Dead)
 				{
-					for(auto i(0u); i < slotChoices.size(); ++i)
-					{
-						auto& sc(slotChoices[i]);
+					gameWindow->draw(txtDeath);
+					gameWindow->draw(txtRestart);
 
-						if(gameSession.choices[i] != nullptr)
-						{
-							sc.txtStr.setString(gameSession.choices[i]->getChoiceStr());
-						}
-						else
-						{
-							sc.txtStr.setString("Blocked");
-						}
-
-						sc.update();
-
-						gameWindow->draw(sc.shape);
-						gameWindow->draw(sc.sprite);
-
-						if(gameSession.choices[i] != nullptr)
-						{
-							gameSession.choices[i]->draw(*gameWindow, sc.shape.getPosition(), sc.getCenter());
-						}
-						else
-						{
-							sc.drawInCenter(*gameWindow, *getAssets().blocked);
-						}
-
-						gameWindow->draw(sc.txtNum);
-						gameWindow->draw(sc.txtStr);
-					}
+					txtDeath.setColor(sf::Color{255, 255, 255, 255 - gameSession.deathTextTime});
+					txtRestart.setColor(sf::Color{255, 255, 255, 255 - gameSession.deathTextTime});
 				}
-
-				gameWindow->draw(tempLog);
-
-				csdPlayer.draw(gameSession.player, *gameWindow, Vec2f{10, 175}, Vec2f{0.f, 0.f});
 			}
 
 		public:
 			inline GameApp(ssvs::GameWindow& mGameWindow)
 				: Boilerplate::App{mGameWindow}, tempLog{*getAssets().obStroked, ""}, txtTimer{*getAssets().obBig, ""},
-				  txtRoom{*getAssets().obBig, ""}
+				  txtRoom{*getAssets().obBig, ""}, txtDeath{*getAssets().obBig, "You have perished."}, txtRestart{*getAssets().obStroked, "Press any number to restart."}
 			{
 				tempLog.setTracking(-3);
 				txtTimer.setTracking(-1);
 				txtRoom.setTracking(-1);
+				txtDeath.setTracking(-1);
+				txtRestart.setTracking(-3);
 
 				for(int i{0}; i < 4; ++i)
 					slotChoices.emplace_back(i);
@@ -1239,8 +1383,15 @@ namespace ggj
 
 				tempLog.setPosition(Vec2f{75, 180});
 
+				txtDeath.setOrigin(ssvs::getGlobalHalfSize(txtDeath));
+				txtRestart.setOrigin(ssvs::getGlobalHalfSize(txtRestart));
+
+				txtDeath.setPosition(320 / 2.f, 80);
+				txtRestart.setPosition(320 / 2.f, 100);
+
 				initInput();
-				//initTest();
+
+				oldPos = gameCamera.getCenter();
 			}
 	};
 }

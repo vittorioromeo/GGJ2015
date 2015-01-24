@@ -23,7 +23,11 @@
 	],
 	"soundBuffers":
 	[	
-	
+		"lvl1.wav",
+		"lvl2.wav",
+		"lvl3.wav",
+		"lvl4.wav",
+		"lose.wav"
 	],
 	"musics":
 	[
