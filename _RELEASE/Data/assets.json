@@ -12,7 +12,14 @@
 		"blocked.png",
 		"back.png",
 		"advance.png",
-		"itemCard.png"
+		"itemCard.png",
+		"eFire.png",
+		"eWater.png",
+		"eEarth.png",
+		"eLightning.png",
+		"eST.png",
+		"eWK.png",
+		"eTY.png"
 	],
 	"soundBuffers":
 	[	
