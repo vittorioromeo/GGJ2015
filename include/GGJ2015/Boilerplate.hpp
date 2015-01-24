@@ -41,7 +41,7 @@ namespace Boilerplate
 				gameWindow.setFullscreen(false);
 				gameWindow.setFPSLimited(true);
 				gameWindow.setMaxFPS(200);
-				gameWindow.setPixelMult(1);
+				gameWindow.setPixelMult(2);
 
 				new(&app) T{gameWindow};
 
