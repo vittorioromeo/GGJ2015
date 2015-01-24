@@ -616,8 +616,8 @@ namespace ggj
 			txtDEF.setPosition(mPos + Vec2f{12.f, 12.f * 2.f});
 
 			txtHPS.setString(ssvu::toStr(mC.hps));
-			txtATK.setString(ssvu::toStr(mC.weapon.atk));
-			txtDEF.setString(ssvu::toStr(mC.armor.def));
+			txtATK.setString(ssvu::toStr(mC.weapon.atk) + " (+"+ ssvu::toStr(mC.bonusATK) + ")");
+			txtDEF.setString(ssvu::toStr(mC.armor.def) + " (+" + ssvu::toStr(mC.bonusDEF) + ")");
 
 			mGW.draw(iconHPS);
 			mGW.draw(iconATK);
@@ -1150,7 +1150,7 @@ namespace ggj
 
 				gameWindow->draw(tempLog);
 
-				csdPlayer.draw(gameSession.player, *gameWindow, Vec2f{10, 160}, Vec2f{0.f, 0.f});
+				csdPlayer.draw(gameSession.player, *gameWindow, Vec2f{10, 175}, Vec2f{0.f, 0.f});
 			}
 
 		public:
