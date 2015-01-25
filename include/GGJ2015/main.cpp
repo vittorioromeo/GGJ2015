@@ -569,7 +569,7 @@ namespace ggj
 				case Type::Div: *statPtr = static_cast<int>(x / value); ssvu::clampMin(*statPtr, 0); break;
 			}
 
-			eventLo() << "Got " << getStrType() << tsWithPrecision(value, 1) << " " << getStrStat() << "\n";
+			eventLo() << "Got " << getStrType() << ssvu::toStr(static_cast<int>(value)) << " " << getStrStat() << "\n";
 
 
 		}
@@ -836,7 +836,7 @@ namespace ggj
 			ies.emplace_back(mIE);
 
 			ssvs::BitmapText txt{*getAssets().obStroked, ""};
-			txt.setString(mIE.getStrType() + tsWithPrecision(mIE.value, 1) + " " + mIE.getStrStat());
+			txt.setString(mIE.getStrType() + ssvu::toStr(static_cast<int>(mIE.value)) + " " + mIE.getStrStat());
 			txt.setTracking(-3);
 			txt.setOrigin(ssvs::getGlobalHalfSize(txt));
 
@@ -1000,19 +1000,30 @@ namespace ggj
 		ItemDrops* currentDrops{nullptr};
 
 		float shake{0}, deathTextTime{0};
-		float difficultyInc{0.11f};
+		float difficultyInc{0.03f};
 
 		enum class Mode{Normal, Practice, Hardcore};
 		Mode mode{Mode::Normal};
 		bool timerEnabled{true};
+
+		inline void sustain()
+		{
+			if(player.isDead()) return;
+
+			float x(1.f + (roomNumber * 1.5f / difficulty));
+			ssvu::clampMax(x, 20);
+
+			eventLo() << "You drain " << static_cast<int>(x) << " HPS defeating the enemy\n";
+			player.hps += x;
+		}
 
 		inline void restart()
 		{
 			music.stop();
 			getAssets().soundPlayer.stop();
 
-			if(mode == Mode::Normal || mode == Mode::Practice) { difficulty = 1.f; difficultyInc = 0.11f; }
-			if(mode == Mode::Hardcore) { difficulty = 1.1f; difficultyInc = 0.17f; }
+			if(mode == Mode::Normal || mode == Mode::Practice) { difficulty = 1.f; difficultyInc = 0.04f; }
+			if(mode == Mode::Hardcore) { difficulty = 1.f; difficultyInc = 0.09f; }
 
 			timerEnabled = (mode != Mode::Practice);
 
@@ -1033,7 +1044,7 @@ namespace ggj
 			player.bonusDEF = 1;
 
 			player.name = "Player";
-			player.hps = 125;
+			player.hps = 150;
 			player.weapon = startingWeapon;
 			player.armor = startingArmor;
 
@@ -1094,14 +1105,27 @@ namespace ggj
 		{
 			auto d(static_cast<int>(mL * difficulty));
 
-			for(int i{1}; i < d / 3; ++i)
-				if(ssvu::getRnd(0, 100) < 25 * rndMultiplier)
-					mX[ssvu::getRnd(0ul, Constants::elementCount)] = true;
+			if(roomNumber < 10) return;
+
+			auto i(0u);
+			std::vector<int> indices{0, 1, 2, 3};
+			std::shuffle(indices.begin(), indices.end(), ssvu::getRndEngine());
+
+			if(ssvu::getRnd(0, 100) < 50) mX[indices[i++]] = true;
+
+			if(d < 20) return;
+			if(ssvu::getRnd(0, 100) < 45) mX[indices[i++]] = true;
+
+			if(d < 30) return;
+			if(ssvu::getRnd(0, 100) < 40) mX[indices[i++]] = true;
+
+			if(d < 40) return;
+			if(ssvu::getRnd(0, 100) < 35) mX[indices[i++]] = true;
 		}
 
 		inline int getRndStat(int mL, float, float)
 		{
-			auto d(static_cast<int>((mL + 4) * difficulty));
+			auto d(static_cast<int>(((mL * 0.8f) + 4) * difficulty));
 
 			return ssvu::getClampedMin(ssvu::getRnd((int)(d * 0.65f), (int)(d * 1.55f)), 0);
 //			return ssvu::getClampedMin(1, d + ssvu::getRnd(static_cast<int>((mMultMin * d) * rndMultiplier), static_cast<int>((mMultMax * d) * rndMultiplier)));
@@ -1130,7 +1154,7 @@ namespace ggj
 		//	if(typeN == 3) type = InstantEffect::Type::Div;
 
 			float val(ssvu::getClampedMin((mL / 8) + ssvu::getRnd(0, 3 + (mL / 12)), 1));
-			if(mStat == InstantEffect::Stat::SHPS) val = mL * (11 + ssvu::getRnd(-2, 3));
+			if(mStat == InstantEffect::Stat::SHPS) val = mL * (10 + ssvu::getRnd(-2, 3));
 			// if(typeN == 2 || typeN == 3) val = ssvu::getRndR(0.75f, 1.25f);
 
 			InstantEffect result
@@ -1267,7 +1291,7 @@ namespace ggj
 			Creature result;
 
 			result.name = getGen().generateCreatureName();
-			result.armor = generateArmor(ssvu::getClampedMin(mL * 0.7f + difficulty - 1, 1));
+			result.armor = generateArmor(ssvu::getClampedMin(mL * 0.69f + difficulty - 1, 1));
 			result.weapon = generateWeapon(mL - 1);
 			result.hps = d * 5 + ssvu::getRnd(0, d * 3);
 
@@ -1369,7 +1393,7 @@ namespace ggj
 			if(roomNumber % 5 == 0)
 			{
 				eventLo() << "Increasing difficulty...\n";
-				difficulty += 0.11f;
+				difficulty += difficultyInc;
 			}
 
 			generateChoices();
@@ -1440,6 +1464,8 @@ namespace ggj
 		if(gameSession.player.canDamage(creature))
 		{
 			gameSession.player.fight(creature);
+
+			gameSession.sustain();
 
 			getAssets().soundPlayer.play(*getAssets().drop);
 			gameSession.resetChoiceAt(idx, ssvu::makeUPtr<ChoiceItemDrop>(gameSession, idx));
