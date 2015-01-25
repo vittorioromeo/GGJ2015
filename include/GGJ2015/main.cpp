@@ -333,15 +333,41 @@ namespace ggj
 				eventLo() << "(Weak attack!)\n";
 			*/
 
-			if(mX.isDead())
-				eventLo() << mX.name << " is dead!\n";
+			//if(mX.isDead())
+//				eventLo() << mX.name << " is dead!\n";
 
 			//eventLo() << "\n";
+		}
+
+		inline void checkBurns()
+		{
+			int burn{0};
+
+			if(bonusATK < 0)
+			{
+				burn -= bonusATK;
+				bonusATK = 0;
+			}
+
+			if(bonusDEF < 0)
+			{
+				burn -= bonusDEF;
+				bonusDEF = 0;
+			}
+
+			if(burn == 0) return;
+
+			auto x(burn * 20);
+
+			hps -= x;
+			eventLo() << name << " suffers " << x << " stat burn dmg!\n";
 		}
 
 		inline void fight(Creature& mX)
 		{
 			eventLo() << name << " engages " << mX.name << "!\n";
+			auto hpsBefore(hps);
+			auto xHPSBefore(mX.hps);
 
 			while(true)
 			{
@@ -351,6 +377,11 @@ namespace ggj
 				mX.attackOnce(*this);
 				if(isDead()) break;
 			}
+
+			if(isDead())
+				eventLo() << mX.name << " wins. HPS " << xHPSBefore << " -> " << mX.hps << "!\n";
+			else
+				eventLo() << name << " wins. HPS " << hpsBefore << " -> " << hps << "!\n";
 		}
 
 		inline bool canDamage(Creature& mX) const noexcept
@@ -564,14 +595,14 @@ namespace ggj
 			switch(type)
 			{
 				case Type::Add: *statPtr += value; break;
-				case Type::Sub: *statPtr -= value; ssvu::clampMin(*statPtr, 0); break;
+				case Type::Sub: *statPtr -= value; break;
 				case Type::Mul: *statPtr = static_cast<int>(x * value); break;
 				case Type::Div: *statPtr = static_cast<int>(x / value); ssvu::clampMin(*statPtr, 0); break;
 			}
 
-			eventLo() << "Got " << getStrType() << ssvu::toStr(static_cast<int>(value)) << " " << getStrStat() << "\n";
+			eventLo() << "Got " << getStrType() << ssvu::toStr(static_cast<int>(value)) << " " << getStrStat() << "!\n";
 
-
+			mX.checkBurns();
 		}
 
 		inline std::string getStrType()
@@ -1022,8 +1053,8 @@ namespace ggj
 			music.stop();
 			getAssets().soundPlayer.stop();
 
-			if(mode == Mode::Normal || mode == Mode::Practice) { difficulty = 1.f; difficultyInc = 0.04f; }
-			if(mode == Mode::Hardcore) { difficulty = 1.f; difficultyInc = 0.09f; }
+			if(mode == Mode::Normal || mode == Mode::Practice) { difficulty = 1.f; difficultyInc = 0.038f; }
+			if(mode == Mode::Hardcore) { difficulty = 1.f; difficultyInc = 0.087f; }
 
 			timerEnabled = (mode != Mode::Practice);
 
