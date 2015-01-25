@@ -1872,7 +1872,7 @@ namespace ggj
 
 int main()
 {
-	Boilerplate::AppRunner<ggj::GameApp>{"Delver's choice - GGJ2015", 320, 240};
+	Boilerplate::AppRunner<ggj::GameApp>{"Delver's choice - GGJ2015 - RC1", 320, 240};
 	return 0;
 }
 
