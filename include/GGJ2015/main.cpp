@@ -3,6 +3,8 @@
 
 // TODO: better resource caching system in SSVS
 // TODO: load resources from folder, not json?
+// TODO: aspect ratio resizing
+// TODO: rich bitmap text
 
 #define CACHE_ASSET(mType, mName, mExt) mType* mName{&assetLoader.assetManager.get<mType>(SSVPP_TOSTR(mName) mExt)}
 
@@ -96,17 +98,11 @@ namespace ggj
 	inline auto mkTxtOBSmall()	{ ssvs::BitmapText result{*getAssets().fontObStroked};	result.setTracking(-3); return result; }
 	inline auto mkTxtOBBig()	{ ssvs::BitmapText result{*getAssets().fontObBig};		result.setTracking(-1); return result; }
 
-	// TODO: to ssvu?
-	template<typename TF, typename... TArgs> inline void forArgs(TF mFn, TArgs&&... mArgs)
-	{
-		[](...){}((mFn(ssvu::fwd<TArgs>(mArgs)), 0)...);
-	}
-
 	template<typename TArg, typename... TArgs> inline auto mkShuffledVector(TArg&& mArg, TArgs&&... mArgs)
 	{
 		std::vector<TArg> result;
 		result.emplace_back(ssvu::fwd<TArg>(mArg));
-		forArgs([&result](auto&& mX){ result.emplace_back(ssvu::fwd<decltype(mX)>(mX)); }, ssvu::fwd<TArgs>(mArgs)...);
+		ssvu::forArgs([&result](auto&& mX){ result.emplace_back(ssvu::fwd<decltype(mX)>(mX)); }, ssvu::fwd<TArgs>(mArgs)...);
 		ssvu::shuffle(result);
 		return result;
 	}
@@ -298,6 +294,7 @@ namespace ggj
 			inline NameGenData(float mChance, const std::string& mStr) : chance{mChance}, str{mStr} { }
 		};
 
+		// TODO: ?
 		struct Gen
 		{
 			inline const auto& getWeapons()
@@ -480,7 +477,7 @@ namespace ggj
 		inline Drop(GameSession& mGameSession) : gameSession{mGameSession}
 		{
 			card.setTexture(*getAssets().itemCard);
-			card.setOrigin(Vec2f{card.getTexture()->getSize()} / 2.f);
+			ssvs::setOrigin(card, ssvs::getLocalCenter);
 		}
 
 		inline virtual ~Drop() { }
@@ -660,7 +657,7 @@ namespace ggj
 			Drop::draw(mGW, mPos, mCenter);
 
 			typeSprite.setTexture(weapon.getTypeTexture());
-			typeSprite.setOrigin(Vec2f{typeSprite.getTexture()->getSize()} / 2.f);
+			ssvs::setOrigin(typeSprite, ssvs::getLocalCenter);
 			typeSprite.setPosition(card.getPosition());
 			mGW.draw(typeSprite);
 
@@ -691,7 +688,7 @@ namespace ggj
 			Drop::draw(mGW, mPos, mCenter);
 
 			armorSprite.setTexture(*getAssets().armDrop);
-			armorSprite.setOrigin(Vec2f{armorSprite.getTexture()->getSize()} / 2.f);
+			ssvs::setOrigin(armorSprite, ssvs::getLocalCenter);
 			armorSprite.setPosition(card.getPosition());
 			mGW.draw(armorSprite);
 
@@ -705,10 +702,7 @@ namespace ggj
 		std::vector<InstantEffect> ies;
 		std::vector<ssvs::BitmapText> bts;
 
-		inline DropIE(GameSession& mGameSession) : Drop{mGameSession}
-		{
-
-		}
+		inline DropIE(GameSession& mGameSession) : Drop{mGameSession} { }
 
 		inline void addIE(InstantEffect mIE)
 		{
@@ -716,7 +710,7 @@ namespace ggj
 
 			ssvs::BitmapText txt{mkTxtOBSmall()};
 			txt.setString(mIE.getStrType() + ssvu::toStr(static_cast<int>(mIE.value)) + " " + mIE.getStrStat());
-			txt.setOrigin(ssvs::getGlobalHalfSize(txt));
+			ssvs::setOrigin(txt, ssvs::getLocalCenter);
 
 			bts.emplace_back(txt);
 		}
@@ -789,7 +783,7 @@ namespace ggj
 		inline ChoiceAdvance(GameSession& mGameState, SizeT mIdx) : Choice{mGameState, mIdx}
 		{
 			advanceSprite.setTexture(*getAssets().advance);
-			advanceSprite.setOrigin(Vec2f{advanceSprite.getTexture()->getSize()} / 2.f);
+			ssvs::setOrigin(advanceSprite, ssvs::getLocalCenter);
 		}
 
 		inline void execute() override;
@@ -810,7 +804,7 @@ namespace ggj
 			: Choice{mGameState, mIdx}
 		{
 			enemySprite.setTexture(*getAssets().enemy);
-			enemySprite.setOrigin(Vec2f{enemySprite.getTexture()->getSize()} / 2.f);
+			ssvs::setOrigin(enemySprite, ssvs::getLocalCenter);
 			hoverRads = ssvu::getRndR(0.f, ssvu::tau);
 		}
 
@@ -996,36 +990,10 @@ namespace ggj
 
 		inline InstantEffect generateInstantEffect(InstantEffect::Stat mStat, InstantEffect::Type mType, int mL)
 		{
-			//auto d(static_cast<int>(mL * difficultyMultiplier));
-
-			// TODO: always 1 positive and negative?
-			// TODO: decay every room or low bonuses
-
-	//		InstantEffect::Stat stat;
-			//InstantEffect::Type type;
-/*
-			auto statN = ssvu::getRnd(0, 3);
-			if(statN == 0) stat = InstantEffect::Stat::SHPS;
-			if(statN == 1) stat = InstantEffect::Stat::SATK;
-			if(statN == 2) stat = InstantEffect::Stat::SDEF;
-*/
-			//auto typeN = ssvu::getRnd(0, 4);
-			// auto typeN = ssvu::getRnd(0, 2);
-		//	if(typeN == 0) type = InstantEffect::Type::Add;
-		//	if(typeN == 1) type = InstantEffect::Type::Sub;
-		//	if(typeN == 2) type = InstantEffect::Type::Mul;
-		//	if(typeN == 3) type = InstantEffect::Type::Div;
-
 			float val(ssvu::getClampedMin((mL / 8) + ssvu::getRnd(0, 3 + (mL / 12)), 1));
 			if(mStat == InstantEffect::Stat::SHPS) val = mL * (10 + ssvu::getRnd(-2, 3));
-			// if(typeN == 2 || typeN == 3) val = ssvu::getRndR(0.75f, 1.25f);
 
-			InstantEffect result
-			{
-				mType, mStat, val
-			};
-
-			return result;
+			return {mType, mStat, val};
 		}
 
 		inline auto getShuffledStats()
@@ -1066,7 +1034,6 @@ namespace ggj
 		inline auto generateDropWeapon(int mL)
 		{
 			auto dr(ssvu::makeUPtr<WeaponDrop>(*this));
-
 			dr->weapon = generateWeapon(mL);
 
 			return dr;
@@ -1075,7 +1042,6 @@ namespace ggj
 		inline auto generateDropArmor(int mL)
 		{
 			auto dr(ssvu::makeUPtr<ArmorDrop>(*this));
-
 			dr->armor = generateArmor(mL);
 
 			return dr;
@@ -1212,10 +1178,9 @@ namespace ggj
 
 		inline void refreshMusic()
 		{
-			if(music.getBuffer() != currentMusic) music.setBuffer(*currentMusic);
-
 			music.setLoop(true);
-			music.play();
+			if(music.getBuffer() != currentMusic) music.setBuffer(*currentMusic);
+			if(music.getStatus() != sf::Sound::Status::Playing) music.play();
 		}
 
 		template<typename T> inline void resetChoiceAt(SizeT mIdx, T&& mX)
@@ -1400,13 +1365,13 @@ namespace ggj
 			sprite.setTexture(*getAssets().slotChoice);
 			sprite.setPosition(Vec2f{10 + step * mChoice, 40});
 
-			txtNum.setOrigin(ssvs::getGlobalHalfSize(txtNum));
+			ssvs::setOrigin(txtNum, ssvs::getLocalCenter);
 			txtNum.setPosition(Vec2f{10 + step * mChoice + (step / 2.f), 40 + 105});
 		}
 
 		inline void update()
 		{
-			txtStr.setOrigin(ssvs::getGlobalHalfSize(txtStr));
+			ssvs::setOrigin(txtStr, ssvs::getLocalCenter);
 			txtStr.setPosition(Vec2f{10 + step * choice + (step / 2.f), 40 + 120});
 		}
 
@@ -1419,7 +1384,7 @@ namespace ggj
 		{
 			sf::Sprite s;
 			s.setTexture(mX);
-			s.setOrigin(Vec2f{s.getTexture()->getSize()} / 2.f);
+			ssvs::setOrigin(s, ssvs::getLocalCenter);
 			s.setPosition(getCenter());
 			mGW.draw(s);
 		}
@@ -1529,18 +1494,8 @@ namespace ggj
 
 					if(!gs.player.isDead())
 					{
-						if(gs.timer <= ssvu::getSecondsToFT(1))
-						{
-							if(gs.shake < 3) gs.shake = 3;
-						}
-						else if(gs.timer <= ssvu::getSecondsToFT(2))
-						{
-							if(gs.shake < 2) gs.shake = 2;
-						}
-						else if(gs.timer <= ssvu::getSecondsToFT(3))
-						{
-							if(gs.shake < 1) gs.shake = 1;
-						}
+						auto secs(ssvu::getFTToSeconds(gs.timer));
+						if(secs < 3) ssvu::clampMin(gs.shake, 4 - secs);
 					}
 
 					if(gs.timer <= 0 || gs.player.isDead())
@@ -1686,12 +1641,8 @@ namespace ggj
 			{
 				gameCamera.apply();
 
-
 				if(gs.state == GameSession::State::Playing || gs.deathTextTime > 0)
-				{
 					drawPlaying();
-				}
-
 
 				gameCamera.unapply();
 
@@ -1775,6 +1726,8 @@ namespace ggj
 
 int main()
 {
+	SSVUT_RUN();
+
 	Boilerplate::AppRunner<ggj::GameApp>{"Delver's choice - GGJ2015 - RC6", 320, 240};
 	return 0;
 }
