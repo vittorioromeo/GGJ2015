@@ -1,154 +1,94 @@
 #include "../GGJ2015/Common.hpp"
 #include "../GGJ2015/Boilerplate.hpp"
 
+// #define LOAD_ASSET(mName) mName = &assetManager.get<ssvu::RemovePtr<decltype(mName)>>(SSVPP_TOSTR(mName))
+// #define LOAD_ASSET_EXT(mName, mExt) mName = &assetManager.get<ssvu::RemovePtr<decltype(mName)>>(SSVPP_TOSTR(mName) mExt)
+#define CACHE_ASSET(mType, mName, mExt) mType* mName{&assetLoader.assetManager.get<mType>(SSVPP_TOSTR(mName) mExt)}
+
 namespace ggj
 {
 	namespace Impl
 	{
-		struct Assets
+		struct AssetLoader
 		{
 			ssvs::AssetManager assetManager;
+
+			inline AssetLoader()
+			{
+				ssvs::loadAssetsFromJson(assetManager, "Data/", ssvj::Val::fromFile("Data/assets.json"));
+			}
+		};
+
+		struct Assets
+		{
+			AssetLoader assetLoader{};
 
 			// Audio players
 			ssvs::SoundPlayer soundPlayer;
 			ssvs::MusicPlayer musicPlayer;
 
 			// BitmapFonts
-			ssvs::BitmapFont* obStroked{nullptr};
-			ssvs::BitmapFont* obBig{nullptr};
+			CACHE_ASSET(ssvs::BitmapFont, fontObStroked, "");
+			CACHE_ASSET(ssvs::BitmapFont, fontObBig, "");
 
 			// Textures
-			sf::Texture* slotChoice{nullptr};
+			CACHE_ASSET(sf::Texture, slotChoice, ".png");
+			CACHE_ASSET(sf::Texture, iconHPS, ".png");
+			CACHE_ASSET(sf::Texture, iconATK, ".png");
+			CACHE_ASSET(sf::Texture, iconDEF, ".png");
+			CACHE_ASSET(sf::Texture, drops, ".png");
+			CACHE_ASSET(sf::Texture, enemy, ".png");
+			CACHE_ASSET(sf::Texture, blocked, ".png");
+			CACHE_ASSET(sf::Texture, back, ".png");
+			CACHE_ASSET(sf::Texture, dropsModal, ".png");
+			CACHE_ASSET(sf::Texture, advance, ".png");
+			CACHE_ASSET(sf::Texture, itemCard, ".png");
+			CACHE_ASSET(sf::Texture, eFire, ".png");
+			CACHE_ASSET(sf::Texture, eWater, ".png");
+			CACHE_ASSET(sf::Texture, eEarth, ".png");
+			CACHE_ASSET(sf::Texture, eLightning, ".png");
+			CACHE_ASSET(sf::Texture, eST, ".png");
+			CACHE_ASSET(sf::Texture, eWK, ".png");
+			CACHE_ASSET(sf::Texture, eTY, ".png");
+			CACHE_ASSET(sf::Texture, equipCard, ".png");
+			CACHE_ASSET(sf::Texture, wpnMace, ".png");
+			CACHE_ASSET(sf::Texture, wpnSword, ".png");
+			CACHE_ASSET(sf::Texture, wpnSpear, ".png");
+			CACHE_ASSET(sf::Texture, armDrop, ".png");
 
-			sf::Texture* iconHPS{nullptr};
-			sf::Texture* iconATK{nullptr};
-			sf::Texture* iconDEF{nullptr};
-
-			sf::Texture* drops{nullptr};
-			sf::Texture* enemy{nullptr};
-
-			sf::Texture* blocked{nullptr};
-			sf::Texture* back{nullptr};
-
-			sf::Texture* dropsModal{nullptr};
-			sf::Texture* advance{nullptr};
-
-			sf::Texture* itemCard{nullptr};
-
-			sf::Texture* eFire{nullptr};
-			sf::Texture* eWater{nullptr};
-			sf::Texture* eEarth{nullptr};
-			sf::Texture* eLightning{nullptr};
-
-			sf::Texture* eST{nullptr};
-			sf::Texture* eWK{nullptr};
-			sf::Texture* eTY{nullptr};
-
-			sf::Texture* equipCard{nullptr};
-
-			sf::Texture* wpnMace{nullptr};
-			sf::Texture* wpnSword{nullptr};
-			sf::Texture* wpnSpear{nullptr};
-
-			sf::Texture* armDrop{nullptr};
-
-			sf::SoundBuffer* lvl1{nullptr};
-			sf::SoundBuffer* lvl2{nullptr};
-			sf::SoundBuffer* lvl3{nullptr};
-			sf::SoundBuffer* lvl4{nullptr};
-
-			sf::SoundBuffer* lose{nullptr};
+			// Sounds
+			CACHE_ASSET(sf::SoundBuffer, lvl1, ".wav");
+			CACHE_ASSET(sf::SoundBuffer, lvl2, ".wav");
+			CACHE_ASSET(sf::SoundBuffer, lvl3, ".wav");
+			CACHE_ASSET(sf::SoundBuffer, lvl4, ".wav");
+			CACHE_ASSET(sf::SoundBuffer, menu, ".wav");
+			CACHE_ASSET(sf::SoundBuffer, powerup, ".wav");
+			CACHE_ASSET(sf::SoundBuffer, drop, ".wav");
+			CACHE_ASSET(sf::SoundBuffer, grab, ".wav");
+			CACHE_ASSET(sf::SoundBuffer, equipArmor, ".wav");
+			CACHE_ASSET(sf::SoundBuffer, equipWpn, ".wav");
+			CACHE_ASSET(sf::SoundBuffer, lose, ".wav");
 
 			std::vector<sf::SoundBuffer*> swordSnds, maceSnds, spearSnds;
 
-			sf::SoundBuffer* menu{nullptr};
-			sf::SoundBuffer* powerup{nullptr};
-			sf::SoundBuffer* drop{nullptr};
-			sf::SoundBuffer* grab{nullptr};
-			sf::SoundBuffer* equipArmor{nullptr};
-			sf::SoundBuffer* equipWpn{nullptr};
-
 			inline Assets()
 			{
-				ssvs::loadAssetsFromJson(assetManager, "Data/", ssvj::Val::fromFile("Data/assets.json"));
-
-				obStroked = &assetManager.get<ssvs::BitmapFont>("fontObStroked");
-				obBig = &assetManager.get<ssvs::BitmapFont>("fontObBig");
-
-				slotChoice = &assetManager.get<sf::Texture>("slotChoice.png");
-
-				iconHPS = &assetManager.get<sf::Texture>("iconHPS.png");
-				iconATK = &assetManager.get<sf::Texture>("iconATK.png");
-				iconDEF = &assetManager.get<sf::Texture>("iconDEF.png");
-
-				drops = &assetManager.get<sf::Texture>("drops.png");
-
-				blocked = &assetManager.get<sf::Texture>("blocked.png");
-				back = &assetManager.get<sf::Texture>("back.png");
-
-				dropsModal = &assetManager.get<sf::Texture>("dropsModal.png");
-				advance = &assetManager.get<sf::Texture>("advance.png");
-
-				itemCard = &assetManager.get<sf::Texture>("itemCard.png");
-
-				eFire = &assetManager.get<sf::Texture>("eFire.png");
-				eWater = &assetManager.get<sf::Texture>("eWater.png");
-				eEarth = &assetManager.get<sf::Texture>("eEarth.png");
-				eLightning = &assetManager.get<sf::Texture>("eLightning.png");
-
-				enemy = &assetManager.get<sf::Texture>("enemy.png");
-
-				eST = &assetManager.get<sf::Texture>("eST.png");
-				eWK = &assetManager.get<sf::Texture>("eWK.png");
-				eTY = &assetManager.get<sf::Texture>("eTY.png");
-
-				equipCard = &assetManager.get<sf::Texture>("equipCard.png");
-
-				wpnMace = &assetManager.get<sf::Texture>("wpnMace.png");
-				wpnSword = &assetManager.get<sf::Texture>("wpnSword.png");
-				wpnSpear = &assetManager.get<sf::Texture>("wpnSpear.png");
-
-				armDrop = &assetManager.get<sf::Texture>("armDrop.png");
-
-				lvl1 = &assetManager.get<sf::SoundBuffer>("lvl1.wav");
-				lvl2 = &assetManager.get<sf::SoundBuffer>("lvl2.wav");
-				lvl3 = &assetManager.get<sf::SoundBuffer>("lvl3.wav");
-				lvl4 = &assetManager.get<sf::SoundBuffer>("lvl4.wav");
-
-				lose = &assetManager.get<sf::SoundBuffer>("lose.wav");
-
 				std::vector<std::string> elems{"normal","fire","water","earth","lightning"};
 
 				for(auto& e : elems)
 				{
-					swordSnds.emplace_back(&assetManager.get<sf::SoundBuffer>("sword/" + e + ".wav"));
-					maceSnds.emplace_back(&assetManager.get<sf::SoundBuffer>("mace/" + e + ".wav"));
-					spearSnds.emplace_back(&assetManager.get<sf::SoundBuffer>("spear/" + e + ".wav"));
+					swordSnds.emplace_back(&assetLoader.assetManager.get<sf::SoundBuffer>("sword/" + e + ".wav"));
+					maceSnds.emplace_back(&assetLoader.assetManager.get<sf::SoundBuffer>("mace/" + e + ".wav"));
+					spearSnds.emplace_back(&assetLoader.assetManager.get<sf::SoundBuffer>("spear/" + e + ".wav"));
 				}
 
 				soundPlayer.setVolume(100.f);
-
-				menu = &assetManager.get<sf::SoundBuffer>("menu.wav");
-				powerup = &assetManager.get<sf::SoundBuffer>("powerup.wav");
-				drop = &assetManager.get<sf::SoundBuffer>("drop.wav");
-				grab = &assetManager.get<sf::SoundBuffer>("grab.wav");
-				equipArmor = &assetManager.get<sf::SoundBuffer>("equipArmor.wav");
-				equipWpn = &assetManager.get<sf::SoundBuffer>("equipWpn.wav");
 			}
 		};
 	}
 
-	inline auto& getAssets()
-	{
-		static Impl::Assets result;
-		return result;
-	}
-
-	inline auto& getEventLogStream()
-	{
-		static std::stringstream result;
-		return result;
-	}
+	inline auto& getAssets() noexcept { static Impl::Assets result; return result; }
+	inline auto& getEventLogStream() noexcept { static std::stringstream result; return result; }
 
 	namespace Impl
 	{
@@ -163,10 +103,7 @@ namespace ggj
 		};
 	}
 
-	inline auto eventLo() noexcept
-	{
-		return Impl::EventLog{};
-	}
+	inline auto eventLo() noexcept { return Impl::EventLog{}; }
 
 	using StatType = int;
 	using HPS = StatType;
@@ -182,6 +119,9 @@ namespace ggj
 		static constexpr int maxDrops{3};
 	};
 
+	using ElementBitset = std::bitset<Constants::elementCount>;
+
+	/*
 	namespace Impl
 	{
 		class ElementType
@@ -190,10 +130,7 @@ namespace ggj
 				std::string name;
 
 			public:
-				inline ElementType(const std::string& mName) : name{mName}
-				{
-
-				}
+				inline ElementType(const std::string& mName) : name{mName} { }
 		};
 
 		class ElementTypeData
@@ -212,10 +149,7 @@ namespace ggj
 					SSVU_ASSERT(elementTypes.size() == Constants::elementCount);
 				}
 
-				inline const auto& getElementTypes()
-				{
-					return elementTypes;
-				}
+				inline const auto& getElementTypes() { return elementTypes; }
 		};
 	}
 
@@ -228,8 +162,7 @@ namespace ggj
 				return result;
 			}
 	};
-
-	using ElementBitset = std::bitset<Constants::elementCount>;
+	*/
 
 	struct Weapon
 	{
@@ -412,11 +345,7 @@ namespace ggj
 			float chance;
 			std::string str;
 
-			inline NameGenData(float mChance, const std::string& mStr)
-				: chance{mChance}, str{mStr}
-			{
-
-			}
+			inline NameGenData(float mChance, const std::string& mStr) : chance{mChance}, str{mStr} { }
 		};
 
 		struct Gen
@@ -541,13 +470,10 @@ namespace ggj
 		};
 	}
 
-	inline auto& getGen()
-	{
-		static Impl::Gen result;
-		return result;
-	}
+	inline auto& getGen() noexcept { static Impl::Gen result; return result; }
 
 
+	/*
 	template <typename T>
 	std::string tsWithPrecision(const T a_value, const int n = 6)
 	{
@@ -555,7 +481,7 @@ namespace ggj
 		out << std::fixed << std::setprecision(n) << a_value;
 		return out.str();
 	}
-
+	*/
 
 	struct InstantEffect
 	{
@@ -686,7 +612,7 @@ namespace ggj
 		ssvs::BitmapText txtATK;
 		sf::Sprite eST, eWK;
 
-		inline WeaponStatsDraw() : txtATK{*getAssets().obStroked, ""}
+		inline WeaponStatsDraw() : txtATK{*getAssets().fontObStroked, ""}
 		{
 			iconATK.setTexture(*getAssets().iconATK);
 			txtATK.setTracking(-3);
@@ -730,7 +656,7 @@ namespace ggj
 		ssvs::BitmapText txtDEF;
 		sf::Sprite eTY;
 
-		inline ArmorStatsDraw() : txtDEF{*getAssets().obStroked, ""}
+		inline ArmorStatsDraw() : txtDEF{*getAssets().fontObStroked, ""}
 		{
 			iconDEF.setTexture(*getAssets().iconDEF);
 			txtDEF.setTracking(-3);
@@ -770,12 +696,10 @@ namespace ggj
 		WeaponStatsDraw wsd;
 		ArmorStatsDraw asd;
 
-		inline CreatureStatsDraw() : txtHPS{*getAssets().obStroked, ""}
+		inline CreatureStatsDraw() : txtHPS{*getAssets().fontObStroked, ""}
 		{
 			iconHPS.setTexture(*getAssets().iconHPS);
 			txtHPS.setTracking(-3);
-
-
 		}
 
 		inline void draw(Creature& mC, ssvs::GameWindow& mGW, const Vec2f& mPos, const Vec2f& mCenter)
@@ -866,7 +790,7 @@ namespace ggj
 		{
 			ies.emplace_back(mIE);
 
-			ssvs::BitmapText txt{*getAssets().obStroked, ""};
+			ssvs::BitmapText txt{*getAssets().fontObStroked, ""};
 			txt.setString(mIE.getStrType() + ssvu::toStr(static_cast<int>(mIE.value)) + " " + mIE.getStrStat());
 			txt.setTracking(-3);
 			txt.setOrigin(ssvs::getGlobalHalfSize(txt));
@@ -905,8 +829,6 @@ namespace ggj
 		{
 			for(auto i(0u); i < Constants::maxDrops; ++i)
 				drops[i] = nullptr;
-
-
 		}
 
 		inline bool has(int mIdx)
@@ -950,10 +872,7 @@ namespace ggj
 		inline void execute() override;
 		inline void draw(ssvs::GameWindow&, const Vec2f&, const Vec2f&) override;
 
-		inline std::string getChoiceStr() override
-		{
-			return "Forward";
-		}
+		inline std::string getChoiceStr() override { return "Forward"; }
 	};
 
 
@@ -975,10 +894,7 @@ namespace ggj
 		inline void execute() override;
 		inline void draw(ssvs::GameWindow&, const Vec2f&, const Vec2f&) override;
 
-		inline std::string getChoiceStr() override
-		{
-			return "Fight";
-		}
+		inline std::string getChoiceStr() override { return "Fight"; }
 	};
 
 	struct ChoiceItemDrop : public Choice
@@ -991,10 +907,7 @@ namespace ggj
 		inline void execute() override;
 		inline void draw(ssvs::GameWindow&, const Vec2f&, const Vec2f&) override;
 
-		inline std::string getChoiceStr() override
-		{
-			return "Collect";
-		}
+		inline std::string getChoiceStr() override { return "Collect"; }
 	};
 
 	struct ChoiceSingleDrop : public Choice
@@ -1006,10 +919,7 @@ namespace ggj
 		inline void execute() override;
 		inline void draw(ssvs::GameWindow&, const Vec2f&, const Vec2f&) override;
 
-		inline std::string getChoiceStr() override
-		{
-			return "Pickup";
-		}
+		inline std::string getChoiceStr() override { return "Pickup"; }
 	};
 
 	struct GameSession
@@ -1517,12 +1427,7 @@ namespace ggj
 		csd.draw(creature, mGW, offset + mPos, mCenter);
 	}
 
-	struct SlotBase
-	{
-
-	};
-
-	struct SlotChoice : public SlotBase
+	struct SlotChoice
 	{
 		sf::RectangleShape shape;
 		sf::Sprite sprite;
@@ -1532,8 +1437,8 @@ namespace ggj
 
 		static constexpr float step{300.f / 4.f};
 
-		inline SlotChoice(int mChoice) : txtNum{*getAssets().obBig, ssvu::toStr(mChoice + 1)},
-			txtStr{*getAssets().obStroked, ""}, choice{mChoice}
+		inline SlotChoice(int mChoice) : txtNum{*getAssets().fontObBig, ssvu::toStr(mChoice + 1)},
+			txtStr{*getAssets().fontObStroked, ""}, choice{mChoice}
 		{
 			shape.setSize(Vec2f{step, 130.f});
 			shape.setFillColor(sf::Color::Red);
@@ -1891,9 +1796,9 @@ namespace ggj
 
 		public:
 			inline GameApp(ssvs::GameWindow& mGameWindow)
-				: Boilerplate::App{mGameWindow}, tempLog{*getAssets().obStroked, ""}, txtTimer{*getAssets().obBig, ""},
-				  txtRoom{*getAssets().obBig, ""}, txtDeath{*getAssets().obBig, "You have perished."}, txtRestart{*getAssets().obStroked, ""},
-				   txtCredits{*getAssets().obStroked, ""}
+				: Boilerplate::App{mGameWindow}, tempLog{*getAssets().fontObStroked, ""}, txtTimer{*getAssets().fontObBig, ""},
+				  txtRoom{*getAssets().fontObBig, ""}, txtDeath{*getAssets().fontObBig, "You have perished."}, txtRestart{*getAssets().fontObStroked, ""},
+				   txtCredits{*getAssets().fontObStroked, ""}
 			{
 				tempLog.setTracking(-3);
 				txtTimer.setTracking(-1);
@@ -1902,8 +1807,14 @@ namespace ggj
 				txtRestart.setTracking(-3);
 				txtCredits.setTracking(-3);
 
-				txtCredits.setString("Global Game Jam 2015\nDeveloper: Vittorio Romeo\n2D Artist: Vittorio Romeo\nAudio: Nicola Bombaci"
-									"\nDesigner: Sergio Zavettieri\nAdditional help: Davide Iuffrida\n\nhttp://vittorioromeo.info\nhttp://nicolabombaci.com");
+				txtCredits.setString("Global Game Jam 2015\n"
+									 "Developer: Vittorio Romeo\n"
+									 "2D Artist: Vittorio Romeo\n"
+									 "Audio: Nicola Bombaci\n"
+									 "Designer: Sergio Zavettieri\n"
+									 "Additional help: Davide Iuffrida\n\n"
+									 "http://vittorioromeo.info\n"
+									 "http://nicolabombaci.com");
 
 				for(int i{0}; i < 4; ++i)
 					slotChoices.emplace_back(i);
@@ -1929,7 +1840,7 @@ namespace ggj
 
 int main()
 {
-	Boilerplate::AppRunner<ggj::GameApp>{"Delver's choice - GGJ2015 - RC1", 320, 240};
+	Boilerplate::AppRunner<ggj::GameApp>{"Delver's choice - GGJ2015 - RC6", 320, 240};
 	return 0;
 }
 
