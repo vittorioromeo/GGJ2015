@@ -1,12 +1,15 @@
 #include "../GGJ2015/Common.hpp"
 #include "../GGJ2015/Boilerplate.hpp"
 
-// #define LOAD_ASSET(mName) mName = &assetManager.get<ssvu::RemovePtr<decltype(mName)>>(SSVPP_TOSTR(mName))
-// #define LOAD_ASSET_EXT(mName, mExt) mName = &assetManager.get<ssvu::RemovePtr<decltype(mName)>>(SSVPP_TOSTR(mName) mExt)
+// TODO: better resource caching system in SSVS
+// TODO: load resources from folder, not json?
+
 #define CACHE_ASSET(mType, mName, mExt) mType* mName{&assetLoader.assetManager.get<mType>(SSVPP_TOSTR(mName) mExt)}
 
 namespace ggj
 {
+	class GameSession;
+
 	namespace Impl
 	{
 		struct AssetLoader
@@ -121,49 +124,6 @@ namespace ggj
 
 	using ElementBitset = std::bitset<Constants::elementCount>;
 
-	/*
-	namespace Impl
-	{
-		class ElementType
-		{
-			private:
-				std::string name;
-
-			public:
-				inline ElementType(const std::string& mName) : name{mName} { }
-		};
-
-		class ElementTypeData
-		{
-			private:
-				std::vector<ElementType> elementTypes;
-
-			public:
-				inline ElementTypeData()
-				{
-					elementTypes.emplace_back("Fire");
-					elementTypes.emplace_back("Water");
-					elementTypes.emplace_back("Earth");
-					elementTypes.emplace_back("Lightning");
-
-					SSVU_ASSERT(elementTypes.size() == Constants::elementCount);
-				}
-
-				inline const auto& getElementTypes() { return elementTypes; }
-		};
-	}
-
-	class HardcodedData
-	{
-		public:
-			inline const auto& getElementTypeData()
-			{
-				static Impl::ElementTypeData result;
-				return result;
-			}
-	};
-	*/
-
 	struct Weapon
 	{
 		enum class Type : int {Mace = 0 , Sword = 1, Spear = 2};
@@ -188,7 +148,7 @@ namespace ggj
 
 		inline void playAttackSounds()
 		{
-			std::vector<sf::SoundBuffer*>* vec{&(getAssets().swordSnds)};
+			auto vec(&(getAssets().swordSnds));
 			if(type == Type::Mace) vec = &getAssets().maceSnds;
 			else if(type == Type::Spear) vec = &getAssets().spearSnds;
 
@@ -255,46 +215,9 @@ namespace ggj
 		{
 			auto dmg(Calculations::getWeaponDamageAgainst(weapon, mX.armor, bonusATK, mX.bonusDEF));
 			mX.hps -= dmg;
-
-			/*
-			eventLo() << name << " hits " << mX.name << " for " << dmg << " dmg!\n";
-
-			if(Calculations::isWeaponStrongAgainst(weapon, mX.armor))
-				eventLo() << "(Strong attack!)\n";
-
-			if(Calculations::isWeaponWeakAgainst(weapon, mX.armor))
-				eventLo() << "(Weak attack!)\n";
-			*/
-
-			//if(mX.isDead())
-//				eventLo() << mX.name << " is dead!\n";
-
-			//eventLo() << "\n";
 		}
 
-		inline void checkBurns()
-		{
-			int burn{0};
-
-			if(bonusATK < 0)
-			{
-				burn -= bonusATK;
-				bonusATK = 0;
-			}
-
-			if(bonusDEF < 0)
-			{
-				burn -= bonusDEF;
-				bonusDEF = 0;
-			}
-
-			if(burn == 0) return;
-
-			auto x(burn * 20);
-
-			hps -= x;
-			eventLo() << name << " suffers " << x << " stat burn dmg!\n";
-		}
+		void checkBurns(GameSession& mGameSession);
 
 		inline void fight(Creature& mX)
 		{
@@ -472,32 +395,21 @@ namespace ggj
 
 	inline auto& getGen() noexcept { static Impl::Gen result; return result; }
 
-
-	/*
-	template <typename T>
-	std::string tsWithPrecision(const T a_value, const int n = 6)
-	{
-		std::ostringstream out;
-		out << std::fixed << std::setprecision(n) << a_value;
-		return out.str();
-	}
-	*/
-
 	struct InstantEffect
 	{
-		enum class Type
+		enum class Type : int
 		{
-			Add,
-			Sub,
-			Mul,
-			Div
+			Add = 0,
+			Sub = 1,
+			Mul = 2,
+			Div = 3
 		};
 
-		enum class Stat
+		enum class Stat : int
 		{
-			SHPS,
-			SATK,
-			SDEF
+			SHPS = 0,
+			SATK = 1,
+			SDEF = 2
 		};
 
 		Type type;
@@ -505,63 +417,40 @@ namespace ggj
 		float value;
 
 		inline InstantEffect(Type mType, Stat mStat, float mValue) : type{mType}, stat{mStat}, value{mValue} { }
-		inline void apply(Creature& mX)
-		{
-			StatType* statPtr{nullptr};
-
-			switch(stat)
-			{
-				case Stat::SHPS: statPtr = &mX.hps; break;
-				case Stat::SATK: statPtr = &mX.bonusATK; break;
-				case Stat::SDEF: statPtr = &mX.bonusDEF; break;
-			}
-
-			float x(static_cast<float>(*statPtr));
-
-			switch(type)
-			{
-				case Type::Add: *statPtr += value; break;
-				case Type::Sub: *statPtr -= value; break;
-				case Type::Mul: *statPtr = static_cast<int>(x * value); break;
-				case Type::Div: *statPtr = static_cast<int>(x / value); ssvu::clampMin(*statPtr, 0); break;
-			}
-
-			eventLo() << "Got " << getStrType() << ssvu::toStr(static_cast<int>(value)) << " " << getStrStat() << "!\n";
-
-			mX.checkBurns();
-		}
+		inline void apply(GameSession& mGameSession, Creature& mX);
 
 		inline std::string getStrType()
 		{
-			switch(type)
-			{
-				case Type::Add: return "+";
-				case Type::Sub: return "-";
-				case Type::Mul: return "*";
-				case Type::Div: return "/";
-			}
+			static auto array(ssvu::make_array
+			(
+				"+",
+				"-",
+				"*",
+				"/"
+			));
 
-			return "";
+			return array[static_cast<int>(type)];
 		}
 
 		inline std::string getStrStat()
 		{
-			switch(stat)
-			{
-				case Stat::SHPS: return "HPS";
-				case Stat::SATK: return "ATK";
-				case Stat::SDEF: return "DEF";
-			}
+			static auto array(ssvu::make_array
+			(
+				"HPS",
+				"ATK",
+				"DEF"
+			));
 
-			return "";
+			return array[static_cast<int>(stat)];
 		}
 	};
 
 	struct Drop
 	{
+		GameSession& gameSession;
 		sf::Sprite card;
 
-		inline Drop()
+		inline Drop(GameSession& mGameSession) : gameSession{mGameSession}
 		{
 			card.setTexture(*getAssets().itemCard);
 			card.setOrigin(Vec2f{card.getTexture()->getSize()} / 2.f);
@@ -578,16 +467,17 @@ namespace ggj
 	};
 
 
-	inline sf::Sprite createElemSprite(int mEI)
+	inline auto createElemSprite(int mEI)
 	{
-		sf::Sprite result;
+		static auto array(ssvu::make_array
+		(
+			getAssets().eFire,
+			getAssets().eWater,
+			getAssets().eEarth,
+			getAssets().eLightning
+		));
 
-		if(mEI == 0) result.setTexture(*getAssets().eFire);
-		else if(mEI == 1) result.setTexture(*getAssets().eWater);
-		else if(mEI == 2) result.setTexture(*getAssets().eEarth);
-		else if(mEI == 3) result.setTexture(*getAssets().eLightning);
-
-		return result;
+		return sf::Sprite{*(array[mEI])};
 	}
 
 	template<typename T> inline void appendElems(ssvs::GameWindow& mGW, const T& mX, ElementBitset mEB)
@@ -724,7 +614,7 @@ namespace ggj
 		Weapon weapon;
 		WeaponStatsDraw wsd;
 
-		inline WeaponDrop()
+		inline WeaponDrop(GameSession& mGameSession) : Drop{mGameSession}
 		{
 			card.setTexture(*getAssets().equipCard);
 		}
@@ -755,7 +645,7 @@ namespace ggj
 		Armor armor;
 		ArmorStatsDraw asd;
 
-		inline ArmorDrop()
+		inline ArmorDrop(GameSession& mGameSession) : Drop{mGameSession}
 		{
 			card.setTexture(*getAssets().equipCard);
 		}
@@ -786,6 +676,11 @@ namespace ggj
 		std::vector<InstantEffect> ies;
 		std::vector<ssvs::BitmapText> bts;
 
+		inline DropIE(GameSession& mGameSession) : Drop{mGameSession}
+		{
+
+		}
+
 		inline void addIE(InstantEffect mIE)
 		{
 			ies.emplace_back(mIE);
@@ -801,7 +696,7 @@ namespace ggj
 		inline void apply(Creature& mX) override
 		{
 			getAssets().soundPlayer.play(*getAssets().powerup, ssvs::SoundPlayer::Mode::Overlap, 1.8f);
-			for(auto& x : ies) x.apply(mX);
+			for(auto& x : ies) x.apply(gameSession, mX);
 		}
 
 		inline void draw(ssvs::GameWindow& mGW, const Vec2f& mPos, const Vec2f& mCenter) override
@@ -1131,7 +1026,7 @@ namespace ggj
 
 		inline auto generateDropIE(int mL)
 		{
-			auto dIE(ssvu::makeUPtr<DropIE>());
+			auto dIE(ssvu::makeUPtr<DropIE>(*this));
 
 			addIEs(mL, *dIE);
 
@@ -1147,7 +1042,7 @@ namespace ggj
 
 		inline auto generateDropWeapon(int mL)
 		{
-			auto dr(ssvu::makeUPtr<WeaponDrop>());
+			auto dr(ssvu::makeUPtr<WeaponDrop>(*this));
 
 			dr->weapon = generateWeapon(mL);
 
@@ -1156,7 +1051,7 @@ namespace ggj
 
 		inline auto generateDropArmor(int mL)
 		{
-			auto dr(ssvu::makeUPtr<ArmorDrop>());
+			auto dr(ssvu::makeUPtr<ArmorDrop>(*this));
 
 			dr->armor = generateArmor(mL);
 
@@ -1425,6 +1320,56 @@ namespace ggj
 		enemySprite.setPosition(mCenter + Vec2f(0, std::sin(hoverRads) * 4.f));
 		mGW.draw(enemySprite);
 		csd.draw(creature, mGW, offset + mPos, mCenter);
+	}
+
+	inline void InstantEffect::apply(GameSession& mGameSession, Creature& mX)
+	{
+		StatType* statPtr{nullptr};
+
+		switch(stat)
+		{
+			case Stat::SHPS: statPtr = &mX.hps; break;
+			case Stat::SATK: statPtr = &mX.bonusATK; break;
+			case Stat::SDEF: statPtr = &mX.bonusDEF; break;
+		}
+
+		float x(static_cast<float>(*statPtr));
+
+		switch(type)
+		{
+			case Type::Add: *statPtr += value; break;
+			case Type::Sub: *statPtr -= value; break;
+			case Type::Mul: *statPtr = static_cast<int>(x * value); break;
+			case Type::Div: *statPtr = static_cast<int>(x / value); break;
+		}
+
+		eventLo() << "Got " << getStrType() << ssvu::toStr(static_cast<int>(value)) << " " << getStrStat() << "!\n";
+
+		mX.checkBurns(mGameSession);
+	}
+
+	inline void Creature::checkBurns(GameSession& mGameSession)
+	{
+		int burn{0};
+
+		if(bonusATK < 0)
+		{
+			burn -= bonusATK;
+			bonusATK = 0;
+		}
+
+		if(bonusDEF < 0)
+		{
+			burn -= bonusDEF;
+			bonusDEF = 0;
+		}
+
+		if(burn == 0) return;
+
+		auto x(burn * (5 * mGameSession.roomNumber * mGameSession.difficulty));
+
+		hps -= x;
+		eventLo() << name << " suffers " << x << " stat burn dmg!\n";
 	}
 
 	struct SlotChoice
