@@ -495,6 +495,11 @@ namespace ggj
 		}
 	}
 
+	inline auto getStatDisplayStr(StatType mBase, StatType mBonus)
+	{
+		return ssvu::toStr(mBase + mBonus) + " (" + ssvu::toStr(mBase) + "+" + ssvu::toStr(mBonus) + ")";
+	}
+
 	struct WeaponStatsDraw
 	{
 		Vec2f pos;
@@ -534,7 +539,7 @@ namespace ggj
 
 		inline void draw(Creature& mC, ssvs::GameWindow& mGW, const Vec2f& mPos, const Vec2f& mCenter)
 		{
-			txtATK.setString(ssvu::toStr(mC.weapon.atk) + " (+"+ ssvu::toStr(mC.bonusATK) + ")");
+			txtATK.setString(getStatDisplayStr(mC.weapon.atk, mC.bonusATK));
 			commonDraw(mC.weapon, mGW, mPos, mCenter);
 		}
 	};
@@ -567,7 +572,7 @@ namespace ggj
 
 		inline void draw(Creature& mC, ssvs::GameWindow& mGW, const Vec2f& mPos, const Vec2f& mCenter)
 		{
-			txtDEF.setString(ssvu::toStr(mC.armor.def) + " (+" + ssvu::toStr(mC.bonusDEF) + ")");
+			txtDEF.setString(getStatDisplayStr(mC.armor.def, mC.bonusDEF));
 			commonDraw(mC.armor, mGW, mPos, mCenter);
 		}
 
