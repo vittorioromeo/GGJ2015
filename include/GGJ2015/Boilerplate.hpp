@@ -13,17 +13,24 @@ namespace Boilerplate
 
 			ssvs::GameState gameState;
 			ssvs::Camera gameCamera;
-			ssvs::GameWindow* gameWindow;
+			ssvs::GameWindow& gameWindow;
 
 		public:
-			inline App(ssvs::GameWindow& mGameWindow) : gameCamera{mGameWindow, 1.f}, gameWindow{&mGameWindow} { }
+			inline App(ssvs::GameWindow& mGameWindow) : gameCamera{mGameWindow, 1.f}, gameWindow{mGameWindow} { }
+
+			inline void stop() noexcept	{ return gameWindow.stop(); }
+
+			template<typename... TArgs> inline void render(TArgs&&... mArgs)
+			{
+				gameWindow.draw(ssvu::fwd<TArgs>(mArgs)...);
+			}
 
 			inline auto& getGameState() noexcept				{ return gameState; }
 			inline const auto& getGameState() const noexcept	{ return gameState; }
 			inline auto& getGameCamera() noexcept				{ return gameCamera; }
 			inline const auto& getGameCamera() const noexcept	{ return gameCamera; }
-			inline auto& getGameWindow() noexcept				{ SSVU_ASSERT(gameWindow != nullptr); return *gameWindow; }
-			inline const auto& getGameWindow() const noexcept	{ SSVU_ASSERT(gameWindow != nullptr); return *gameWindow; }
+			inline auto& getGameWindow() noexcept				{ return gameWindow; }
+			inline const auto& getGameWindow() const noexcept	{ return gameWindow; }
 	};
 
 	template<typename T> class AppRunner
@@ -48,6 +55,7 @@ namespace Boilerplate
 				gameWindow.setGameState(reinterpret_cast<T&>(app).getGameState());
 				gameWindow.run();
 			}
+
 			inline ~AppRunner() { reinterpret_cast<T&>(app).~T(); }
 	};
 }
