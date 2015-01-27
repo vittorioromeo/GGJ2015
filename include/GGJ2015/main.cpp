@@ -183,7 +183,6 @@ namespace ggj
 			// Normal
 			if(strongAgainst.none())
 			{
-				ssvu::lo() << "Play snd" << std::endl;
 				getAssets().soundPlayer.play(*vec[0]);
 			}
 			else
@@ -1213,9 +1212,8 @@ namespace ggj
 
 		inline void refreshMusic()
 		{
-			if(music.getBuffer() == currentMusic) return;
+			if(music.getBuffer() != currentMusic) music.setBuffer(*currentMusic);
 
-			music.setBuffer(*currentMusic);
 			music.setLoop(true);
 			music.play();
 		}
