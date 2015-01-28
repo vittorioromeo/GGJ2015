@@ -5,6 +5,7 @@
 // TODO: load resources from folder, not json?
 // TODO: aspect ratio resizing
 // TODO: rich bitmap text
+// TODO: game state virtual funcs
 
 #define CACHE_ASSET(mType, mName, mExt) mType* mName{&assetLoader.assetManager.get<mType>(SSVPP_TOSTR(mName) mExt)}
 
@@ -348,7 +349,7 @@ namespace ggj
 					{0.8f,		"Dragon"},
 					{0.7f,		"Ghost"},
 					{0.7f,		"Bloodkin"},
-					{0.5f,		"Vampire"},
+					{0.5f,		"Scolarship"},
 				};
 
 				return result;
@@ -524,14 +525,66 @@ namespace ggj
 		return ssvu::toStr(mBase + mBonus) + " (" + ssvu::toStr(mBase) + "+" + ssvu::toStr(mBonus) + ")";
 	}
 
+	struct StatRichText
+	{
+		ssvs::BitmapTextRich txt{*getAssets().fontObStroked};
+		ssvs::BTRPart* pssExtra;
+		ssvs::BTRPString* psTotal;
+		ssvs::BTRPString* psBase;
+		ssvs::BTRPString* psBonus;
+
+		inline StatRichText()
+		{
+			txt.addTracking(-3);
+
+			txt << sf::Color::White;
+			psTotal = &txt.addStr("");
+
+			pssExtra = &txt.addGroup();
+
+			(*pssExtra) << sf::Color::White << " (";
+
+			(*pssExtra) << sf::Color::Red;
+			psBase = &pssExtra->addStr("");
+
+			(*pssExtra) << sf::Color::White << "+";
+
+			(*pssExtra) << sf::Color::Green;
+			psBonus = &pssExtra->addStr("");
+
+			(*pssExtra) << sf::Color::White << ")";
+		}
+
+		inline void set(StatType mX)
+		{
+			pssExtra->setEnabled(false);
+
+			auto s(ssvu::toStr(mX));
+			psTotal->setStr(s);
+		}
+
+		inline void set(StatType mBase, StatType mBonus)
+		{
+			pssExtra->setEnabled(true);
+
+			auto sBase(ssvu::toStr(mBase));
+			auto sBonus(ssvu::toStr(mBonus));
+			auto sTotal(ssvu::toStr(mBase + mBonus));
+
+			psTotal->setStr(sTotal);
+			psBase->setStr(sBase);
+			psBonus->setStr(sBonus);
+		}
+	};
+
 	struct WeaponStatsDraw
 	{
 		Vec2f pos;
 		sf::Sprite iconATK;
-		ssvs::BitmapText txtATK;
 		sf::Sprite eST, eWK;
+		StatRichText srtATK;
 
-		inline WeaponStatsDraw() : txtATK{mkTxtOBSmall()}
+		inline WeaponStatsDraw()
 		{
 			iconATK.setTexture(*getAssets().iconATK);
 			eST.setTexture(*getAssets().eST);
@@ -543,26 +596,26 @@ namespace ggj
 			iconATK.setPosition(mPos + pos);
 			eST.setPosition(iconATK.getPosition() + Vec2f{0, 10 + 1});
 			eWK.setPosition(eST.getPosition() + Vec2f{0, 6 + 1});
-			txtATK.setPosition(iconATK.getPosition() + Vec2f{12.f, 0});
+			srtATK.txt.setPosition(iconATK.getPosition() + Vec2f{12.f, 0});
 
 			appendElems(mGW, eST, mW.strongAgainst);
 			appendElems(mGW, eWK, mW.weakAgainst);
 
 			mGW.draw(iconATK);
-			mGW.draw(txtATK);
+			mGW.draw(srtATK.txt);
 			mGW.draw(eST);
 			mGW.draw(eWK);
 		}
 
 		inline void draw(Weapon& mW, ssvs::GameWindow& mGW, const Vec2f& mPos, const Vec2f& mCenter)
 		{
-			txtATK.setString(ssvu::toStr(mW.atk));
+			srtATK.set(mW.atk);
 			commonDraw(mW, mGW, mPos, mCenter);
 		}
 
 		inline void draw(Creature& mC, ssvs::GameWindow& mGW, const Vec2f& mPos, const Vec2f& mCenter)
 		{
-			txtATK.setString(getStatDisplayStr(mC.weapon.atk, mC.bonusATK));
+			srtATK.set(mC.weapon.atk, mC.bonusATK);
 			commonDraw(mC.weapon, mGW, mPos, mCenter);
 		}
 	};
@@ -571,10 +624,10 @@ namespace ggj
 	{
 		Vec2f pos;
 		sf::Sprite iconDEF;
-		ssvs::BitmapText txtDEF;
 		sf::Sprite eTY;
+		StatRichText srtDEF;
 
-		inline ArmorStatsDraw() : txtDEF{mkTxtOBSmall()}
+		inline ArmorStatsDraw()
 		{
 			iconDEF.setTexture(*getAssets().iconDEF);
 			eTY.setTexture(*getAssets().eTY);
@@ -584,24 +637,24 @@ namespace ggj
 		{
 			iconDEF.setPosition(pos + mPos);
 			eTY.setPosition(iconDEF.getPosition() + Vec2f{0, 10 + 1});
-			txtDEF.setPosition(iconDEF.getPosition() + Vec2f{12.f, 0});
+			srtDEF.txt.setPosition(iconDEF.getPosition() + Vec2f{12.f, 0});
 			mGW.draw(iconDEF);
-			mGW.draw(txtDEF);
+			mGW.draw(srtDEF.txt);
 			mGW.draw(eTY);
 
 			appendElems(mGW, eTY, mA.elementTypes);
 		}
 
-		inline void draw(Creature& mC, ssvs::GameWindow& mGW, const Vec2f& mPos, const Vec2f& mCenter)
-		{
-			txtDEF.setString(getStatDisplayStr(mC.armor.def, mC.bonusDEF));
-			commonDraw(mC.armor, mGW, mPos, mCenter);
-		}
-
 		inline void draw(Armor& mA, ssvs::GameWindow& mGW, const Vec2f& mPos, const Vec2f& mCenter)
 		{
-			txtDEF.setString(ssvu::toStr(mA.def));
+			srtDEF.set(mA.def);
 			commonDraw(mA, mGW, mPos, mCenter);
+		}
+
+		inline void draw(Creature& mC, ssvs::GameWindow& mGW, const Vec2f& mPos, const Vec2f& mCenter)
+		{
+			srtDEF.set(mC.armor.def, mC.bonusDEF);
+			commonDraw(mC.armor, mGW, mPos, mCenter);
 		}
 	};
 
@@ -1395,7 +1448,9 @@ namespace ggj
 		private:
 			GameSession gs;
 			ssvs::BitmapText txtTimer{mkTxtOBBig()}, txtRoom{mkTxtOBBig()}, txtDeath{mkTxtOBBig()},
-							txtLog{mkTxtOBSmall()}, txtRestart{mkTxtOBSmall()}, txtCredits{mkTxtOBSmall()}, txtMode{mkTxtOBSmall()};
+							txtLog{mkTxtOBSmall()}, txtRestart{mkTxtOBSmall()}, txtMode{mkTxtOBSmall()};
+
+			ssvs::BitmapTextRich txtCredits{*getAssets().fontObStroked};
 			std::vector<SlotChoice> slotChoices;
 			sf::Sprite dropsModalSprite;
 			CreatureStatsDraw csdPlayer;
@@ -1546,8 +1601,8 @@ namespace ggj
 				if(gs.shake > 0)
 				{
 					gs.shake -= mFT;
-					auto shake(gs.shake);
-					gameCamera.setCenter(oldPos + Vec2f{ssvu::getRndR(-shake, shake), ssvu::getRndR(-shake, shake)});
+					auto shake(std::abs(gs.shake));
+					gameCamera.setCenter(oldPos + Vec2f{ssvu::getRndR(-shake, shake + 0.1f), ssvu::getRndR(-shake, shake + 0.1f)});
 				}
 				else
 				{
@@ -1694,14 +1749,19 @@ namespace ggj
 		public:
 			inline GameApp(ssvs::GameWindow& mGameWindow) : Boilerplate::App{mGameWindow}
 			{
-				txtCredits.setString("Global Game Jam 2015\n"
-									 "Developer: Vittorio Romeo\n"
-									 "2D Artist: Vittorio Romeo\n"
-									 "Audio: Nicola Bombaci\n"
-									 "Designer: Sergio Zavettieri\n"
-									 "Additional help: Davide Iuffrida\n\n"
-									 "http://vittorioromeo.info\n"
-									 "http://nicolabombaci.com");
+				using sfc = sf::Color;
+
+				txtCredits.addTracking(-3);
+
+				txtCredits
+					<< sfc::White  << "Global Game Jam 2015\n"
+					<< sfc::White << "Developer: " << sfc::Red << "Vittorio Romeo\n"
+					<< sfc::White << "2D Artist: " << sfc::Red << "Vittorio Romeo\n"
+					<< sfc::White << "Audio: " << sfc::Red << "Nicola Bombaci\n"
+					<< sfc::White << "Designer: " << sfc::Red << "Sergio Zavettieri\n"
+					<< sfc::White << "Additional help: " << sfc::Red << "Davide Iuffrida\n"
+					<< sfc::Blue << "http://vittorioromeo.info\nhttp://nicolabombaci.com";
+
 
 				for(int i{0}; i < 4; ++i) slotChoices.emplace_back(i);
 
@@ -1712,8 +1772,6 @@ namespace ggj
 				dropsModalSprite.setPosition(10, 40);
 
 				txtLog.setPosition(Vec2f{75, 180});
-
-
 
 				initInput();
 
